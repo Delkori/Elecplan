@@ -894,8 +894,8 @@ function getConnections(elem){
     }
     case 'vav':{
       if(elem.circuitId)conns.push({from:tableau,to:elem,wires:['phase','neutre','terre']});
-      if(elem.pairVav){const pair=state.elements.find(x=>x.id===elem.pairVav);if(pair&&elem.id<pair.id)conns.push({from:elem,to:pair,wires:['nav1','nav2']});
-      elem.linkedLampes.forEach(lid=>{const lampe=state.elements.find(x=>x.id===lid);if(lampe)conns.push({from:elem,to:lampe,wires:['retour','neutre','terre']});});
+      if(elem.pairVav){const pair=state.elements.find(x=>x.id===elem.pairVav);if(pair&&elem.id<pair.id)conns.push({from:elem,to:pair,wires:['nav1','nav2']});}
+elem.linkedLampes.forEach(lid=>{const lampe=state.elements.find(x=>x.id===lid);if(lampe)conns.push({from:elem,to:lampe,wires:['retour','neutre','terre']});});
       break;
     }
   }
