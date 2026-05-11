@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElecPlan - Planificateur Électrique NFC 15-100</title>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-hover: #30363d;
+    --border: #30363d;
+    --border-light: #21262d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --red: #ff7b72;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+    --pink: #ec4899;
+    --blue: #58a6ff;
+    --sidebar-w: 210px;
+    --panel-w: 300px;
+    --header-h: 52px;
+    --bar-h: 32px;
+    --cell: 72;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 13px; }
+  #header { height: var(--header-h); background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; z-index: 100; }
+  #header .logo { font-size: 18px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  #header .logo span { font-size: 11px; background: var(--orange); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  #header .spacer { flex: 1; }
+  .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
+  .btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  #main { display: flex; flex: 1; overflow: hidden; }
+  #sidebar { width: var(--sidebar-w); background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-section { padding: 10px 8px 4px; }
+  .sidebar-title { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 0 4px 6px; }
+  .mode-btn { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; border: 1px solid transparent; }
+  .mode-btn:hover { background: var(--bg-hover); }
+  .mode-btn.active { background: rgba(88,166,255,0.12); border-color: var(--accent); color: var(--accent); }
+  .mode-btn .mode-icon { font-size: 16px; width: 22px; text-align: center; }
+  .mode-label { font-size: 12px; font-weight: 500; }
+  .elem-btn { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; cursor: pointer; transition: all 0.15s; margin-bottom: 1px; border: 1px solid transparent; }
+  .elem-btn:hover { background: var(--bg-hover); }
+  .elem-btn.selected { background: rgba(88,166,255,0.1); border-color: rgba(88,166,255,0.4); color: var(--accent); }
+  .elem-icon { font-size: 15px; width: 20px; text-align: center; }
+  .elem-label { font-size: 11px; flex: 1; }
+  .elem-section { font-size: 9px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 4px; border-radius: 3px; }
+  .divider { height: 1px; background: var(--border); margin: 6px 8px; }
+  #canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #canvas-bar { height: var(--bar-h); background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 16px; flex-shrink: 0; font-size: 11px; color: var(--text-secondary); }
+  #canvas-bar #hint { flex: 1; color: var(--accent); font-style: italic; }
+  #canvas-container { flex: 1; overflow: auto; position: relative; background: var(--bg-primary); cursor: crosshair; }
+  #canvas-container.mode-select { cursor: default; }
+  #canvas-container.mode-delete { cursor: not-allowed; }
+  #canvas-container.mode-draw { cursor: crosshair; }
+  #grid-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+  #svg-cables { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+  #rooms-layer { position: absolute; top: 0; left: 0; z-index: 1; }
+  #elements-layer { position: absolute; top: 0; left: 0; z-index: 5; }
+  #preview-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; }
+  #panel { width: var(--panel-w); background: var(--bg-secondary); border-left: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; padding: 12px; }
+  #panel h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
+  .panel-empty { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 40px; line-height: 1.8; }
+  .info-card { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+  .info-card-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-light); }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text-secondary); font-size: 11px; }
+  .info-val { font-size: 11px; font-weight: 600; }
+  .badge { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .badge-ok { background: rgba(63,185,80,0.2); color: var(--green); }
+  .badge-warn { background: rgba(227,179,65,0.2); color: var(--orange); }
+  .badge-err { background: rgba(255,123,114,0.2); color: var(--red); }
+  .badge-info { background: rgba(88,166,255,0.2); color: var(--blue); }
+  .gaine-block { background: var(--bg-primary); border-radius: 6px; padding: 10px; margin-top: 8px; border-left: 3px solid var(--accent); }
+  .gaine-title { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .fil-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 11px; }
+  .fil-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .note-nfc { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.2); border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 10px; color: var(--blue); line-height: 1.5; }
+  .element { position: absolute; width: 64px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; border: 2px solid var(--border); background: var(--bg-tertiary); cursor: pointer; transition: all 0.15s; user-select: none; font-size: 22px; }
+  .element .elem-num { font-size: 9px; color: var(--text-muted); position: absolute; top: 2px; right: 4px; font-weight: 600; }
+  .element .elem-lbl { font-size: 9px; color: var(--text-secondary); position: absolute; bottom: 2px; text-align: center; max-width: 60px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .element.status-ok { border-color: var(--green); box-shadow: 0 0 6px rgba(63,185,80,0.3); }
+  .element.status-warn { border-color: var(--orange); box-shadow: 0 0 6px rgba(227,179,65,0.3); }
+  .element.status-err { border-color: var(--red); box-shadow: 0 0 6px rgba(255,123,114,0.3); }
+  .element.selected { border-color: var(--accent); box-shadow: 0 0 10px rgba(88,166,255,0.5); z-index: 6; }
+  .element.magnetic { border-color: var(--green); animation: pulse-green 1s infinite; }
+  @keyframes pulse-green { 0%,100%{ box-shadow: 0 0 4px rgba(63,185,80,0.3); } 50%{ box-shadow: 0 0 14px rgba(63,185,80,0.8); } }
+  .room { position: absolute; border: 2px solid var(--accent); background: rgba(88,166,255,0.05); border-radius: 4px; cursor: pointer; }
+  .room .room-label { position: absolute; top: 4px; left: 6px; font-size: 11px; font-weight: 600; color: var(--accent); }
+  .room .room-dim { position: absolute; top: 18px; left: 6px; font-size: 9px; color: var(--text-muted); }
+  .room.selected-room { border-color: var(--orange); background: rgba(227,179,65,0.05); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 20px; min-width: 400px; max-width: 520px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .modal .modal-sub { font-size: 11px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5; padding: 8px; background: var(--bg-tertiary); border-radius: 6px; }
+  .conn-option { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+  .conn-option:hover { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+  .conn-option .opt-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .conn-option .opt-detail { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg-tertiary); border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 400px; text-align: center; }
+  #toast.show { opacity: 1; }
+  #toast.err { border-color: var(--red); color: var(--red); }
+  #toast.ok { border-color: var(--green); color: var(--green); }
+  #toast.info { border-color: var(--accent); color: var(--accent); }
+  .mat-section { margin-bottom: 14px; }
+  .mat-section h4 { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .mat-row { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 4px; font-size: 11px; }
+  .mat-row:nth-child(odd) { background: var(--bg-tertiary); }
+  .mat-row .mat-qty { font-weight: 600; color: var(--orange); }
+  #room-preview { position: absolute; border: 2px dashed var(--accent); background: rgba(88,166,255,0.06); pointer-events: none; display: none; z-index: 11; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div class="logo">⚡ ElecPlan <span>NFC 15-100</span></div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="showMateriel()">📋 Liste matériel</button>
+  <button class="btn" onclick="saveToLocal()">💾 Sauvegarder</button>
+  <button class="btn danger" onclick="clearAll()">🗑 Effacer tout</button>
+</div>
+<div id="main">
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Mode</div>
+      <div class="mode-btn active" id="mode-place" onclick="setMode('place')"><span class="mode-icon">✏️</span><span class="mode-label">Placer</span></div>
+      <div class="mode-btn" id="mode-select" onclick="setMode('select')"><span class="mode-icon">↖</span><span class="mode-label">Sélectionner</span></div>
+      <div class="mode-btn" id="mode-delete" onclick="setMode('delete')"><span class="mode-icon">🗑</span><span class="mode-label">Supprimer</span></div>
+      <div class="mode-btn" id="mode-draw" onclick="setMode('draw')"><span class="mode-icon">🔲</span><span class="mode-label">Dessiner pièce</span></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Éléments</div>
+      <div id="elem-list"></div>
+    </div>
+  </div>
+  <div id="canvas-wrap">
+    <div id="canvas-bar">
+      <span id="hint">💡 Commence par poser le tableau électrique</span>
+      <span id="coords">X: 0  Y: 0</span>
+      <button class="btn" onclick="zoom(-0.1)">−</button>
+      <span id="zoom-val">100%</span>
+      <button class="btn" onclick="zoom(0.1)">+</button>
+      <button class="btn" onclick="resetZoom()">↺</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="grid-canvas"></canvas>
+      <svg id="svg-cables"></svg>
+      <div id="rooms-layer"></div>
+      <div id="elements-layer"></div>
+      <div id="preview-layer">
+        <div id="elem-preview" style="position:absolute;display:none;opacity:0.5;pointer-events:none;"></div>
+        <div id="room-preview"></div>
+      </div>
+    </div>
+  </div>
+  <div id="panel">
+    <h3>Câblage & Infos</h3>
+    <div id="panel-content" class="panel-empty">← Sélectionne un élément<br>pour voir son câblage<br>détaillé</div>
+  </div>
+</div>
+<div id="modal-conn" class="modal-overlay" style="display:none"><div class="modal"><h2 id="modal-title">Connexion</h2><div class="modal-sub" id="modal-sub"></div><div id="modal-options"></div><div class="modal-btns"><button class="btn" onclick="cancelModal()">Annuler (non relié)</button></div></div></div>
+<div id="modal-mat" class="modal-overlay" style="display:none"><div class="modal" style="min-width:500px"><h2>📋 Liste de matériel</h2><div id="mat-content"></div><div class="modal-btns"><button class="btn primary" onclick="copyMat()">📋 Copier</button><button class="btn" onclick="printMat()">🖨 Imprimer</button><button class="btn" onclick="document.getElementById('modal-mat').style.display='none'">Fermer</button></div></div></div>
+<div id="modal-room" class="modal-overlay" style="display:none"><div class="modal" style="min-width:320px"><h2>🔲 Nom de la pièce</h2><input id="room-name-input" type="text" placeholder="Ex: Salon, Cuisine, Chambre..." style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:14px;margin:10px 0;"><div class="modal-btns"><button class="btn primary" onclick="confirmRoom()">Valider</button><button class="btn" onclick="cancelRoom()">Annuler</button></div></div></div>
+<div id="toast"></div>
+<script>
+const CELL=72,CANVAS_W=3500,CANVAS_H=2500;
+const NFC_RULES={tableau:{label:'Tableau électrique',icon:'⚡',section:null,disj:null,diff:null,gaine:null,circuit:'unique',maxSerie:1,dedie:true},lampe:{label:'Lampe / DCL',icon:'💡',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:8,dedie:false},inter:{label:'Interrupteur',icon:'🔘',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},inter2:{label:'Inter. double',icon:'🔲',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},vav:{label:'Va-et-vient',icon:'↔️',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},prise:{label:'Prise standard',icon:'🔌',section:'2.5mm²',disj:'16A',diff:'Type A',gaine:'ICTA 16',circuit:'prises',maxSerie:8,dedie:false},prisecui:{label:'Prise cuisine',icon:'🍳',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 16',circuit:'cuisine',maxSerie:5,dedie:false},plaquecui:{label:'Plaque cuisson',icon:'🔥',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},four:{label:'Four encastré',icon:'♨️',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},lavelinge:{label:'Lave-linge',icon:'👕',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},lavevaisselle:{label:'Lave-vaisselle',icon:'🫧',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},sechelinge:{label:'Sèche-linge',icon:'💨',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},frigo:{label:'Réfrigérateur',icon:'🧊',section:'2.5mm²',disj:'16A',diff:'Type AC',gaine:'ICTA 16',circuit:'prises',maxSerie:8,dedie:false},chauffe:{label:'Chauffe-eau',icon:'🚿',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},vmc:{label:'VMC',icon:'🌀',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'dedie',maxSerie:1,dedie:true},clim:{label:'Climatisation',icon:'❄️',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},irve:{label:'Borne IRVE',icon:'🚗',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},chauffage:{label:'Chauffage élec.',icon:'🌡️',section:'2.5mm²',disj:'20A',diff:'Type AC',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},microondes:{label:'Micro-ondes',icon:'📡',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 16',circuit:'dedie',maxSerie:1,dedie:true},hotte:{label:'Hotte aspirante',icon:'💨',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:8,dedie:false}};
+const ELEM_CATEGORIES=[{name:'Installations',types:['tableau']},{name:'Éclairage',types:['lampe','inter','inter2','vav','hotte']},{name:'Prises',types:['prise','prisecui']},{name:'Cuisine',types:['plaquecui','four','microondes']},{name:'Électroménager',types:['lavelinge','lavevaisselle','sechelinge','frigo','chauffe']},{name:'Spéciaux',types:['vmc','clim','irve','chauffage']}];
+const CABLE_COLORS_SVG={eclairage:'#E3B341',prises:'#58A6FF',cuisine:'#FF7B72',dedie:'#BC8CFF',unique:'#3FB950'};
+let state={elements:[],circuits:[],rooms:[],nextId:1,nextCircuitId:1,nextRoomId:1};
+let currentMode='place',selectedElemType='tableau',selectedElemId=null,scale=1,pendingElement=null,drawingRoom=false,roomStart=null,tempRoom=null,toastTimer=null;
+function init(){buildSidebar();drawGrid();bindCanvas();loadFromLocal();render();updateHint();}
+function buildSidebar(){const el=document.getElementById('elem-list');el.innerHTML='';ELEM_CATEGORIES.forEach(cat=>{const title=document.createElement('div');title.className='sidebar-title';title.style.marginTop='6px';title.textContent=cat.name;el.appendChild(title);cat.types.forEach(type=>{const r=NFC_RULES[type],div=document.createElement('div');div.className='elem-btn'+(type===selectedElemType?' selected':'');div.id='ebtn-'+type;div.innerHTML=`<span class="elem-icon">${r.icon}</span><span class="elem-label">${r.label}</span>${r.section?`<span class="elem-section">${r.section}</span>`:''}`;div.onclick=()=>selectElemType(type);el.appendChild(div);});});}
+function selectElemType(type){selectedElemType=type;document.querySelectorAll('.elem-btn').forEach(b=>b.classList.remove('selected'));document.getElementById('ebtn-'+type)?.classList.add('selected');if(currentMode!=='place')setMode('place');updateHint();}
+function drawGrid(){const canvas=document.getElementById('grid-canvas');canvas.width=CANVAS_W;canvas.height=CANVAS_H;const ctx=canvas.getContext('2d');ctx.clearRect(0,0,CANVAS_W,CANVAS_H);ctx.strokeStyle='rgba(48,54,61,0.6)';ctx.lineWidth=0.5;for(let x=0;x<=CANVAS_W;x+=CELL){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CANVAS_H);ctx.stroke();}for(let y=0;y<=CANVAS_H;y+=CELL){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CANVAS_W,y);ctx.stroke();}ctx.strokeStyle='rgba(48,54,61,1)';ctx.lineWidth=1;for(let x=0;x<=CANVAS_W;x+=CELL*5){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CANVAS_H);ctx.stroke();}for(let y=0;y<=CANVAS_H;y+=CELL*5){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CANVAS_W,y);ctx.stroke();}}
+function bindCanvas(){const c=document.getElementById('canvas-container');c.addEventListener('mousemove',onMouseMove);c.addEventListener('click',onCanvasClick);c.addEventListener('mousedown',onMouseDown);c.addEventListener('mouseup',onMouseUp);c.addEventListener('mouseleave',hidePreview);}
+function getGridPos(e){const c=document.getElementById('canvas-container'),rect=c.getBoundingClientRect(),scrollX=c.scrollLeft,scrollY=c.scrollTop,x=e.clientX-rect.left+scrollX,y=e.clientY-rect.top+scrollY,gx=Math.floor(x/CELL)*CELL,gy=Math.floor(y/CELL)*CELL;return{px:x,py:y,gx,gy};}
+function onMouseMove(e){const{gx,gy}=getGridPos(e);document.getElementById('coords').textContent=`X: ${Math.floor(gx/CELL)}m  Y: ${Math.floor(gy/CELL)}m`;if(currentMode==='place'){showPreview(gx,gy);highlightMagnetic(gx,gy);}else if(currentMode==='draw'&&drawingRoom&&roomStart){updateRoomPreview(roomStart.gx,roomStart.gy,gx,gy);}}
+function onMouseDown(e){if(currentMode!=='draw')return;const{gx,gy}=getGridPos(e);drawingRoom=true;roomStart={gx,gy};}
+function onMouseUp(e){if(currentMode!=='draw'||!drawingRoom||!roomStart)return;const{gx,gy}=getGridPos(e);drawingRoom=false;const x=Math.min(roomStart.gx,gx),y=Math.min(roomStart.gy,gy),w=Math.abs(gx-roomStart.gx)+CELL,h=Math.abs(gy-roomStart.gy)+CELL;if(w<CELL*2||h<CELL*2){hideRoomPreview();roomStart=null;return;}tempRoom={x,y,w,h};document.getElementById('room-preview').style.display='none';document.getElementById('room-name-input').value='';document.getElementById('modal-room').style.display='flex';roomStart=null;}
+function onCanvasClick(e){if(currentMode==='draw')return;const{gx,gy}=getGridPos(e);if(currentMode==='place')placeElement(gx,gy);else if(currentMode==='select'){const el=findElementAt(gx,gy);if(el)selectElement(el.id);else deselectElement();}else if(currentMode==='delete'){const el=findElementAt(gx,gy);if(el)deleteElement(el.id);}}
+function hidePreview(){document.getElementById('elem-preview').style.display='none';clearMagneticHighlight();}
+function showPreview(gx,gy){const r=NFC_RULES[selectedElemType],prev=document.getElementById('elem-preview'),occupied=isCellOccupied(gx,gy);prev.style.display='flex';prev.style.left=(gx+4)+'px';prev.style.top=(gy+4)+'px';prev.style.width='64px';prev.style.height='64px';prev.style.fontSize='22px';prev.style.alignItems='center';prev.style.justifyContent='center';prev.style.borderRadius='8px';prev.style.border=occupied?'2px solid var(--red)':'2px solid var(--accent)';prev.style.background=occupied?'rgba(255,123,114,0.15)':'rgba(88,166,255,0.1)';prev.style.opacity='0.7';prev.textContent=r.icon;}
+function updateRoomPreview(x1,y1,x2,y2){const x=Math.min(x1,x2),y=Math.min(y1,y2),w=Math.abs(x2-x1)+CELL,h=Math.abs(y2-y1)+CELL,rp=document.getElementById('room-preview');rp.style.display='block';rp.style.left=x+'px';rp.style.top=y+'px';rp.style.width=w+'px';rp.style.height=h+'px';}
+function hideRoomPreview(){document.getElementById('room-preview').style.display='none';}
+function placeElement(gx,gy){if(selectedElemType!=='tableau'&&!state.elements.find(e=>e.type==='tableau')){toast('⚠️ Pose le tableau électrique en premier !','err');return;}if(selectedElemType==='tableau'&&state.elements.find(e=>e.type==='tableau')){toast('⚠️ Un seul tableau par plan !','err');return;}if(isCellOccupied(gx,gy)){toast('⚠️ Case déjà occupée !','err');return;}const elem={id:state.nextId++,type:selectedElemType,x:gx,y:gy,circuitId:null,linkedInter:null,linkedLampes:[],seriesFrom:null,groupe:1,pairVav:null,pieceId:getPieceAt(gx,gy),status:'warn'};state.elements.push(elem);renderElement(elem);if(selectedElemType==='tableau'){elem.status='ok';toast('✅ Tableau posé ! Commence à placer tes éléments.','ok');updateElementDOM(elem);saveToLocal();return;}setTimeout(()=>openMagneticModal(elem),100);saveToLocal();}
+function isCellOccupied(gx,gy){return state.elements.some(e=>e.x===gx&&e.y===gy);}function findElementAt(gx,gy){return state.elements.find(e=>e.x===gx&&e.y===gy)||null;}function getPieceAt(px,py){const r=state.rooms.find(r=>px>=r.x&&px<r.x+r.w&&py>=r.y&&py<r.y+r.h);return r?r.id:null;}
+function detectCompatibles(elem){const RADIUS=5*CELL,nearby=state.elements.filter(e=>e.id!==elem.id&&Math.sqrt((e.x-elem.x)**2+(e.y-elem.y)**2)<=RADIUS).sort((a,b)=>(Math.sqrt((a.x-elem.x)**2+(a.y-elem.y)**2)-Math.sqrt((b.x-elem.x)**2+(b.y-elem.y)**2))),tableau=state.elements.find(e=>e.type==='tableau'),options=[];
+if(['prise','frigo'].includes(elem.type)){state.circuits.filter(c=>c.type==='prises').forEach(c=>{const used=state.elements.filter(e=>e.circuitId===c.id).length;if(used<NFC_RULES[elem.type].maxSerie){const lastElem=state.elements.filter(e=>e.circuitId===c.id).pop(),dist=lastElem?calcDist(elem,lastElem):0;options.push({title:`🔌 Brancher en série sur Circuit ${c.id} (${used}/${NFC_RULES[elem.type].maxSerie})`,detail:`Câble 3G2,5mm² depuis Prise #${lastElem?.id||'?'} → ~${dist.toFixed(1)}m + 15%\nGaine ICTA 16mm`,action:()=>connectSeries(elem,c.id,lastElem)});}});options.push({title:`➕ Créer nouveau circuit DJ ${NFC_RULES[elem.type].disj} depuis tableau`,detail:`Câble 3G2,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m + 15%\nGaine ICTA 16mm`,action:()=>createNewCircuit(elem,'prises')});}
+else if(elem.type==='prisecui'){state.circuits.filter(c=>c.type==='cuisine').forEach(c=>{const used=state.elements.filter(e=>e.circuitId===c.id).length;if(used<5){const lastElem=state.elements.filter(e=>e.circuitId===c.id).pop(),dist=lastElem?calcDist(elem,lastElem):0;options.push({title:`🍳 Brancher en série sur Circuit cuisine ${c.id} (${used}/5)`,detail:`Câble 3G2,5mm² depuis Prise #${lastElem?.id||'?'} → ~${dist.toFixed(1)}m`,action:()=>connectSeries(elem,c.id,lastElem)});}});options.push({title:'➕ Créer nouveau circuit cuisine DJ 20A depuis tableau',detail:`Câble 3G2,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m`,action:()=>createNewCircuit(elem,'cuisine')});}
+else if(elem.type==='lampe'){nearby.filter(e=>['inter','inter2'].includes(e.type)&&e.linkedLampes.length<(e.type==='inter2'?2:8)).forEach(inter=>{const dist=calcDist(elem,inter);options.push({title:`🔘 Relier à ${NFC_RULES[inter.type].label} #${inter.id}`,detail:`3 gaines depuis inter. #${inter.id} → ~${dist.toFixed(1)}m\nPhase (retour lampe) + Neutre + Terre`,action:()=>linkLampeToInter(elem,inter)});});state.circuits.filter(c=>c.type==='eclairage').forEach(c=>{const used=state.elements.filter(e=>e.circuitId===c.id&&e.type==='lampe').length;if(used<8)options.push({title:`💡 Ajouter au circuit éclairage ${c.id} (${used}/8)`,detail:'Circuit DJ 10A existant',action:()=>connectSeries(elem,c.id,null)});});options.push({title:'➕ Créer nouveau circuit éclairage DJ 10A',detail:`Câble 3G1,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m`,action:()=>createNewCircuit(elem,'eclairage')});}
+else if(elem.type==='inter'){nearby.filter(e=>e.type==='lampe'&&!e.linkedInter).forEach(lampe=>{const dist=calcDist(elem,lampe);options.push({title:`💡 Commander la Lampe #${lampe.id}`,detail:`Câble 3G1,5mm² depuis inter. #${elem.id} → ~${dist.toFixed(1)}m\nRetour lampe + Neutre + Terre`,action:()=>linkLampeToInter(lampe,elem)});});options.push({title:'➕ Créer circuit éclairage DJ 10A (sans lampe pour l\'instant)',detail:'L\'interrupteur sera relié lors du placement de la lampe',action:()=>createNewCircuit(elem,'eclairage')});}
+else if(elem.type==='inter2'){const freeLampes=nearby.filter(e=>e.type==='lampe'&&!e.linkedInter),grouped=[];for(let i=0;i<freeLampes.length&&grouped.length<2;i++)grouped.push(freeLampes[i]);if(grouped.length>0)options.push({title:`🔲 Commander ${grouped.length} lampe(s) sur 2 groupes`,detail:`Groupe 1: Lampe #${grouped[0]?.id||'?'}  Groupe 2: Lampe #${grouped[1]?.id||'à définir'}\nCâble 5G1,5mm²`,action:()=>{grouped.forEach((l,i)=>{l.groupe=i+1;linkLampeToInter(l,elem);});}});options.push({title:'➕ Créer circuit éclairage DJ 10A',detail:'Inter. double — relier les lampes ensuite',action:()=>createNewCircuit(elem,'eclairage')});}
+else if(elem.type==='vav'){nearby.filter(e=>e.type==='vav'&&!e.pairVav&&e.id!==elem.id).forEach(v2=>{const dist=calcDist(elem,v2),freeLampes=state.elements.filter(e=>e.type==='lampe'&&!e.linkedInter);options.push({title:`↔️ Former la paire VaV avec inter. #${v2.id}`,detail:`Câble 5G1,5mm² entre les 2 VaV → ~${dist.toFixed(1)}m\n(Ph+N+T+Navette1+Navette2)${freeLampes[0]?`\nCommande Lampe #${freeLampes[0].id}`:''}`,action:()=>{elem.pairVav=v2.id;v2.pairVav=elem.id;if(freeLampes[0]){freeLampes[0].linkedInter=elem.id;elem.linkedLampes.push(freeLampes[0].id);freeLampes[0].status='ok';}createNewCircuit(elem,'eclairage');createNewCircuit(v2,'eclairage');updateElementDOM(elem);updateElementDOM(v2);renderCables();toast('✅ Paire VaV configurée !','ok');}});});options.push({title:'➕ Poser le 2e interrupteur VaV',detail:'Cet inter. sera en attente — ajoute le 2e VaV pour former la paire',action:()=>{elem.status='warn';updateElementDOM(elem);toast('⚠️ Ajoute le 2e interrupteur Va-et-vient','info');}});}
+else options.push({title:`➕ Circuit dédié DJ ${NFC_RULES[elem.type].disj} depuis tableau`,detail:`Câble 3G${NFC_RULES[elem.type].section} depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m\nGaine ${NFC_RULES[elem.type].gaine}`,action:()=>createNewCircuit(elem,'dedie')});
+return options;}
+function highlightMagnetic(gx,gy){clearMagneticHighlight();if(currentMode!=='place')return;const RADIUS=5*CELL;state.elements.forEach(e=>{const d=Math.sqrt((e.x-gx)**2+(e.y-gy)**2),el=document.getElementById('elem-'+e.id);if(el&&d<=RADIUS&&d>0)el.classList.add('magnetic');});}
+function clearMagneticHighlight(){document.querySelectorAll('.element.magnetic').forEach(el=>el.classList.remove('magnetic'));}
+function openMagneticModal(elem){const r=NFC_RULES[elem.type],options=detectCompatibles(elem);document.getElementById('modal-title').innerHTML=`${r.icon} ${r.label} <span class="badge badge-warn">#${elem.id}</span>`;document.getElementById('modal-sub').innerHTML=`${r.disj?`DJ ${r.disj} — ${r.diff} — ${r.section} — ${r.gaine}`:''}<br>Sélectionne comment connecter cet élément :`;const optDiv=document.getElementById('modal-options');optDiv.innerHTML='';options.forEach(opt=>{const d=document.createElement('div');d.className='conn-option';d.innerHTML=`<div class="opt-title">${opt.title}</div><div class="opt-detail">${opt.detail.replace(/\n/g,'<br>')}</div>`;d.onclick=()=>{opt.action();closeModal();};optDiv.appendChild(d);});pendingElement=elem;document.getElementById('modal-conn').style.display='flex';}
+function closeModal(){document.getElementById('modal-conn').style.display='none';pendingElement=null;render();}
+function cancelModal(){if(pendingElement){pendingElement.status='warn';updateElementDOM(pendingElement);}closeModal();toast('⚠️ Élément posé mais non relié','info');}
+function createNewCircuit(elem,type){const cId=state.nextCircuitId++;state.circuits.push({id:cId,type,disj:NFC_RULES[elem.type].disj});elem.circuitId=cId;elem.status='ok';updateElementDOM(elem);renderCables();toast(`✅ Circuit #${cId} créé (DJ ${NFC_RULES[elem.type].disj})`,'ok');}
+function connectSeries(elem,circuitId,fromElem){elem.circuitId=circuitId;elem.seriesFrom=fromElem?fromElem.id:null;const used=state.elements.filter(e=>e.circuitId===circuitId).length,maxS=NFC_RULES[elem.type].maxSerie;elem.status=used>=maxS?'err':'ok';if(used>=maxS)toast(`⚠️ Circuit #${circuitId} plein (${maxS}/${maxS})`,'err');else toast(`✅ Branché en série sur Circuit #${circuitId} (${used}/${maxS})`,'ok');updateElementDOM(elem);renderCables();}
+function linkLampeToInter(lampe,inter){if(!lampe.circuitId){let c=state.circuits.find(c2=>c2.id===inter.circuitId);if(!c){const cId=state.nextCircuitId++;state.circuits.push({id:cId,type:'eclairage',disj:'10A'});inter.circuitId=cId;c=state.circuits[state.circuits.length-1];}lampe.circuitId=inter.circuitId;}lampe.linkedInter=inter.id;if(!inter.linkedLampes.includes(lampe.id))inter.linkedLampes.push(lampe.id);lampe.status='ok';inter.status='ok';updateElementDOM(lampe);updateElementDOM(inter);renderCables();toast(`✅ Lampe #${lampe.id} reliée à Inter. #${inter.id}`,'ok');}
+function calcDist(a,b){const dx=Math.abs(a.x-b.x)/CELL,dy=Math.abs(a.y-b.y)/CELL;let d=(dx+dy)*1.0;const pieceA=getPieceAt(a.x,a.y),pieceB=getPieceAt(b.x,b.y);if(pieceA!==pieceB)d+=0.5;d+=2.5;return d*1.15;}
+function render(){renderRooms();renderElements();renderCables();}
+function renderRooms(){const layer=document.getElementById('rooms-layer');layer.innerHTML='';state.rooms.forEach(r=>{const div=document.createElement('div');div.className='room';div.id='room-'+r.id;div.style.left=r.x+'px';div.style.top=r.y+'px';div.style.width=r.w+'px';div.style.height=r.h+'px';div.innerHTML=`<div class="room-label">${r.name}</div><div class="room-dim">${(r.w/CELL).toFixed(1)}m × ${(r.h/CELL).toFixed(1)}m</div>`;div.ondblclick=()=>renameRoom(r.id);layer.appendChild(div);});}
+function renderElements(){const layer=document.getElementById('elements-layer');layer.innerHTML='';state.elements.forEach(elem=>renderElement(elem));}
+function renderElement(elem){const r=NFC_RULES[elem.type],layer=document.getElementById('elements-layer');let existing=document.getElementById('elem-'+elem.id);if(!existing){existing=document.createElement('div');existing.className='element';existing.id='elem-'+elem.id;layer.appendChild(existing);}existing.style.left=(elem.x+4)+'px';existing.style.top=(elem.y+4)+'px';existing.innerHTML=`<span>${r.icon}</span><span class="elem-num">#${elem.id}</span><span class="elem-lbl">${r.label}</span>`;existing.className=`element status-${elem.status||'neutral'}${elem.id===selectedElemId?' selected':''}`;existing.onclick=()=>{if(currentMode==='select')selectElement(elem.id);else if(currentMode==='delete')deleteElement(elem.id);};}
+function updateElementDOM(elem){renderElement(elem);}function renderCables(){const svg=document.getElementById('svg-cables');svg.setAttribute('width',CANVAS_W);svg.setAttribute('height',CANVAS_H);svg.innerHTML='';const tableau=state.elements.find(e=>e.type==='tableau');if(!tableau)return;state.elements.forEach(elem=>{if(!elem.circuitId||elem.type==='tableau')return;const circuit=state.circuits.find(c=>c.id===elem.circuitId);if(!circuit)return;const color=CABLE_COLORS_SVG[circuit.type]||'#888';let fromElem=null;if(elem.seriesFrom)fromElem=state.elements.find(e=>e.id===elem.seriesFrom);else if(elem.linkedInter)fromElem=state.elements.find(e=>e.id===elem.linkedInter);else fromElem=tableau;if(!fromElem)fromElem=tableau;drawCable(svg,fromElem,elem,color,circuit.type);});}
+function drawCable(svg,from,to,color,type){const fx=from.x+CELL/2,fy=from.y+CELL/2,tx=to.x+CELL/2,ty=to.y+CELL/2,mx=tx,my=fy,path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',`M ${fx} ${fy} L ${mx} ${my} L ${tx} ${ty}`);path.setAttribute('stroke',color);path.setAttribute('stroke-width','2.5');path.setAttribute('fill','none');path.setAttribute('stroke-dasharray',type==='eclairage'?'6,3':'none');path.setAttribute('opacity','0.8');svg.appendChild(path);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('cx',tx);circle.setAttribute('cy',ty);circle.setAttribute('r','4');circle.setAttribute('fill',color);svg.appendChild(circle);}
+function selectElement(id){selectedElemId=id;document.querySelectorAll('.element').forEach(el=>el.classList.remove('selected'));document.getElementById('elem-'+id)?.classList.add('selected');const elem=state.elements.find(e=>e.id===id);if(elem)showPanel(elem);}
+function deselectElement(){selectedElemId=null;document.querySelectorAll('.element').forEach(el=>el.classList.remove('selected'));document.getElementById('panel-content').innerHTML='<div class="panel-empty">← Sélectionne un élément<br>pour voir son câblage<br>détaillé</div>';}
+function showPanel(elem){const r=NFC_RULES[elem.type],circuit=state.circuits.find(c=>c.id===elem.circuitId),tableau=state.elements.find(e=>e.type==='tableau'),dist=tableau?calcDist(elem,tableau):0,used=circuit?state.elements.filter(e=>e.circuitId===circuit.id).length:0;let statusBadge='';if(elem.status==='ok')statusBadge='<span class="badge badge-ok">✅ Câblé</span>';else if(elem.status==='warn')statusBadge='<span class="badge badge-warn">⚠️ Non relié</span>';else if(elem.status==='err')statusBadge='<span class="badge badge-err">❌ Erreur</span>';let html=`<div class="info-card"><div class="info-card-title">${r.icon} ${r.label} #${elem.id} ${statusBadge}</div>`;if(r.disj)html+=`<div class="info-row"><span class="info-key">Disjoncteur</span><span class="info-val" style="color:var(--red)">DJ ${r.disj} courbe C</span></div><div class="info-row"><span class="info-key">Différentiel</span><span class="info-val" style="color:var(--blue)">${r.diff} 30mA</span></div><div class="info-row"><span class="info-key">Section câble</span><span class="info-val">${r.section}</span></div><div class="info-row"><span class="info-key">Gaine</span><span class="info-val" style="color:var(--green)">${r.gaine}</span></div><div class="info-row"><span class="info-key">Distance estimée</span><span class="info-val" style="color:var(--orange)">~${(dist/1.15).toFixed(1)}m</span></div><div class="info-row"><span class="info-key">Longueur + 15%</span><span class="info-val" style="color:var(--accent)">~${dist.toFixed(1)}m</span></div>`;if(circuit)html+=`<div class="info-row"><span class="info-key">Circuit #${circuit.id}</span><span class="info-val">${r.maxSerie?`${used}/${r.maxSerie} places`:'Dédié'}</span></div>`;html+='</div>'+getCablage(elem);const notes={lampe:'⚡ Le NEUTRE ne passe JAMAIS dans l\'interrupteur — direct tableau → lampe',inter2:'⚡ Phase commune shuntée sur les 2 mécanismes de l\'inter. double',vav:'⚡ Câble 5G1,5 entre les 2 inter. (Ph + N + T + Navette1 + Navette2)',plaquecui:'⚡ Circuit dédié obligatoire — NFC 15-100 art. 441',irve:'⚡ Différentiel Type A obligatoire — norme IEC 62955',chauffe:'⚡ Contacteur jour/nuit recommandé pour le chauffe-eau',vmc:'⚡ Interrupteur de coupure obligatoire sur circuit VMC'};if(notes[elem.type])html+=`<div class="note-nfc">${notes[elem.type]}</div>`;document.getElementById('panel-content').innerHTML=html;}
+function getCablage(elem){const r=NFC_RULES[elem.type],inter=elem.linkedInter?state.elements.find(e=>e.id===elem.linkedInter):null,tableau=state.elements.find(e=>e.type==='tableau');if(!tableau)return '';const filRow=(color,label,section,role)=>`<div class="fil-row"><div class="fil-dot" style="background:${color}"></div><span style="color:${color};font-weight:600">${label}</span> <span style="color:var(--text-muted)">${section} — ${role}</span></div>`;const gaineBlock=(title,fils)=>`<div class="gaine-block"><div class="gaine-title">🔧 ${title}</div>${fils}</div>`;let html='';if(['prise','frigo','prisecui'].includes(elem.type)){const from=elem.seriesFrom?state.elements.find(e=>e.id===elem.seriesFrom):tableau,fromLabel=elem.seriesFrom?`Prise #${from?.id}`:'Tableau',dist=from?calcDist(elem,from):0;html+=gaineBlock(`GAINE — ${fromLabel} → Prise #${elem.id} (~${dist.toFixed(1)}m)`,filRow('#FF7B72','Phase',r.section,'Borne phase prise')+filRow('#58A6FF','Neutre',r.section,'Borne neutre prise')+filRow('#3FB950','Terre PE',r.section,'Borne terre prise'));}else if(elem.type==='lampe'){const interElem=inter,fromLabel=interElem?`Inter. #${interElem.id}`:'Tableau',fromEl=interElem||tableau,dist=fromEl?calcDist(elem,fromEl):0;html+=gaineBlock(`GAINE Tableau → ${interElem?'Interrupteur #'+interElem.id:'Lampe #'+elem.id}`,filRow('#FF7B72','Phase','1.5mm²','Entrée interrupteur')+filRow('#58A6FF','Neutre','1.5mm²','Direct vers lampe (SANS passer inter.)')+filRow('#3FB950','Terre PE','1.5mm²','Boîte encastrement'));if(interElem)html+=gaineBlock(`GAINE Inter. #${interElem.id} → Lampe #${elem.id} (~${dist.toFixed(1)}m)`,filRow('#E3B341','Retour lampe','1.5mm²','Sortie inter. → Borne phase DCL')+filRow('#58A6FF','Neutre','1.5mm²','Direct tableau → Borne N DCL')+filRow('#3FB950','Terre PE','1.5mm²','Borne T DCL'));}else if(elem.type==='inter'){const lampes=elem.linkedLampes.map(lid=>state.elements.find(e=>e.id===lid)).filter(Boolean),distTab=calcDist(elem,tableau);html+=gaineBlock(`GAINE Tableau → Inter. #${elem.id} (~${distTab.toFixed(1)}m)`,filRow('#FF7B72','Phase','1.5mm²','Entrée interrupteur')+filRow('#58A6FF','Neutre','1.5mm²','Traverse sans connexion → vers lampe')+filRow('#3FB950','Terre PE','1.5mm²','Boîte encastrement'));lampes.forEach(l=>{const distL=calcDist(elem,l);html+=gaineBlock(`GAINE Inter. #${elem.id} → Lampe #${l.id} (~${distL.toFixed(1)}m)`,filRow('#E3B341','Retour lampe','1.5mm²','Borne sortie inter. → Borne phase DCL')+filRow('#58A6FF','Neutre','1.5mm²','Depuis tableau → DCL')+filRow('#3FB950','Terre PE','1.5mm²','Borne T DCL'));});}else if(elem.type==='inter2'){html+=gaineBlock(`GAINE Tableau → Inter. double #${elem.id}`,filRow('#FF7B72','Phase','1.5mm²','Shuntée sur les 2 bornes phase')+filRow('#E3B341','Retour lampe G','1.5mm²','Sortie BTN Gauche → Groupe 1')+filRow('#F0A500','Retour lampe D','1.5mm²','Sortie BTN Droit → Groupe 2')+filRow('#58A6FF','Neutre','1.5mm²','Direct tableau → lampes')+filRow('#3FB950','Terre PE','1.5mm²','Boîte encastrement'));}else if(elem.type==='vav'){const pair=elem.pairVav?state.elements.find(e=>e.id===elem.pairVav):null;html+=gaineBlock(`GAINE Tableau → VaV #${elem.id}`,filRow('#FF7B72','Phase','1.5mm²','Borne COM inter. 1')+filRow('#58A6FF','Neutre','1.5mm²','Traverse → lampe')+filRow('#3FB950','Terre PE','1.5mm²','Boîte encastrement'));if(pair){const distP=calcDist(elem,pair);html+=gaineBlock(`GAINE VaV #${elem.id} → VaV #${pair.id} (~${distP.toFixed(1)}m) — Câble 5G1,5`,filRow('#BC8CFF','Navette 1','1.5mm²','L1 inter.1 → L1 inter.2')+filRow('#EC4899','Navette 2','1.5mm²','L2 inter.1 → L2 inter.2')+filRow('#58A6FF','Neutre','1.5mm²','Traverse inter.2 → lampe')+filRow('#3FB950','Terre PE','1.5mm²','Boîtes encastrement'));const lampes=elem.linkedLampes.map(lid=>state.elements.find(e=>e.id===lid)).filter(Boolean);lampes.forEach(l=>{html+=gaineBlock(`GAINE VaV #${pair.id} → Lampe #${l.id}`,filRow('#E3B341','Retour lampe','1.5mm²','COM inter.2 → Borne phase DCL')+filRow('#58A6FF','Neutre','1.5mm²','Borne N DCL')+filRow('#3FB950','Terre PE','1.5mm²','Borne T DCL'));});}}else if(r.dedie&&elem.type!=='tableau'){const dist=calcDist(elem,tableau);html+=gaineBlock(`GAINE Tableau → ${r.label} #${elem.id} (~${dist.toFixed(1)}m)`,filRow('#FF7B72','Phase',r.section,'Circuit dédié')+filRow('#58A6FF','Neutre',r.section,'Retour courant')+filRow('#3FB950','Terre PE',r.section,'Masse équipement'));}return html;}
+function deleteElement(id){const elem=state.elements.find(e=>e.id===id);if(!elem)return;state.elements.forEach(e=>{if(e.linkedInter===id){e.linkedInter=null;e.status='warn';}e.linkedLampes=e.linkedLampes.filter(lid=>lid!==id);if(e.seriesFrom===id)e.seriesFrom=null;if(e.pairVav===id){e.pairVav=null;e.status='warn';}updateElementDOM(e);});state.elements=state.elements.filter(e=>e.id!==id);document.getElementById('elem-'+id)?.remove();if(selectedElemId===id)deselectElement();renderCables();saveToLocal();toast(`🗑 Élément #${id} supprimé`,'info');}
+function confirmRoom(){const name=document.getElementById('room-name-input').value.trim()||'Pièce';if(!tempRoom){document.getElementById('modal-room').style.display='none';return;}const room={id:state.nextRoomId++,name,...tempRoom};state.rooms.push(room);renderRooms();saveToLocal();document.getElementById('modal-room').style.display='none';tempRoom=null;toast(`✅ Pièce "${name}" créée`,'ok');}
+function cancelRoom(){tempRoom=null;document.getElementById('modal-room').style.display='none';}
+function renameRoom(id){const r=state.rooms.find(r=>r.id===id);if(!r)return;const newName=prompt('Nouveau nom de la pièce :',r.name);if(newName){r.name=newName;renderRooms();saveToLocal();}}
+function showMateriel(){const tableau=state.elements.find(e=>e.type==='tableau'),elems=state.elements.filter(e=>e.type!=='tableau');if(!tableau){toast('⚠️ Aucun tableau — plan vide','err');return;}const cables={'1.5':0,'2.5':0,'6':0},gaines={'16':0,'20':0,'25':0},djs={},appareillage={};let wagos3=0,wagos5=0,boitesD=0,boitesE=0;state.elements.forEach(elem=>{const r=NFC_RULES[elem.type],l=r.label;appareillage[l]=(appareillage[l]||0)+1;if(!r.section)return;const sect=r.section.replace('mm²','').trim(),dist=calcDist(elem,tableau);cables[sect]=(cables[sect]||0)+dist;const gNum=r.gaine.replace('ICTA ','').trim();gaines[gNum]=(gaines[gNum]||0)+dist;if(r.disj)djs[`DJ ${r.disj}`]=(djs[`DJ ${r.disj}`]||0)+1;wagos3+=2;boitesD+=0.33;if(['inter','inter2','vav','prise','prisecui'].includes(elem.type))boitesE++;});wagos5=Math.ceil(elems.length/2);const nbMod=Object.values(djs).reduce((a,b)=>a+b,0),nbModTotal=Math.ceil(nbMod*1.2+2);let html=`<div class="mat-section"><h4>🗃 Tableau et protections</h4><div class="mat-row"><span>Coffret ${nbModTotal} modules</span><span class="mat-qty">1 pce</span></div><div class="mat-row"><span>Disj. de branchement 60A</span><span class="mat-qty">1 pce</span></div><div class="mat-row"><span>ID 40A/30mA Type A</span><span class="mat-qty">1 pce</span></div><div class="mat-row"><span>ID 40A/30mA Type AC</span><span class="mat-qty">1 pce</span></div><div class="mat-row"><span>Parafoudre NFC 15-100</span><span class="mat-qty">1 pce</span></div></div><div class="mat-section"><h4>⚡ Disjoncteurs</h4>`;Object.entries(djs).forEach(([k,v])=>{html+=`<div class="mat-row"><span>${k} courbe C</span><span class="mat-qty">${v} pce</span></div>`;});html+='</div><div class="mat-section"><h4>🔌 Câbles H07V-U</h4>';Object.entries(cables).forEach(([s,l])=>{if(l>0)html+=`<div class="mat-row"><span>Câble 3G${s}mm²</span><span class="mat-qty">${Math.ceil(l)}m</span></div>`;});html+='</div><div class="mat-section"><h4>🔵 Gaines ICTA</h4>';Object.entries(gaines).forEach(([d,l])=>{if(l>0)html+=`<div class="mat-row"><span>Gaine ICTA ${d}mm</span><span class="mat-qty">${Math.ceil(l)}m</span></div>`;});html+='</div><div class="mat-section"><h4>🔧 Appareillage</h4>';Object.entries(appareillage).forEach(([k,v])=>{html+=`<div class="mat-row"><span>${k}</span><span class="mat-qty">${v} pce</span></div>`;});html+=`</div><div class="mat-section"><h4>📦 Accessoires</h4><div class="mat-row"><span>WAGO 3 entrées</span><span class="mat-qty">${Math.ceil(wagos3)} pce</span></div><div class="mat-row"><span>WAGO 5 entrées</span><span class="mat-qty">${Math.ceil(wagos5)} pce</span></div><div class="mat-row"><span>Boîtes de dérivation Ø80</span><span class="mat-qty">${Math.ceil(boitesD)} pce</span></div><div class="mat-row"><span>Boîtes d'encastrement</span><span class="mat-qty">${Math.ceil(boitesE)} pce</span></div></div>`;document.getElementById('mat-content').innerHTML=html;document.getElementById('modal-mat').style.display='flex';}
+function copyMat(){const rows=document.querySelectorAll('#mat-content .mat-row');let txt='LISTE MATÉRIEL ElecPlan\n\n';rows.forEach(r=>{const cells=r.querySelectorAll('span');if(cells.length>=2)txt+=`${cells[0].textContent.padEnd(35)} ${cells[1].textContent}\n`;});navigator.clipboard.writeText(txt).then(()=>toast('📋 Copié dans le presse-papier','ok'));}
+function printMat(){window.print();}
+function setMode(mode){currentMode=mode;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));document.getElementById('mode-'+mode)?.classList.add('active');document.getElementById('canvas-container').className='mode-'+mode;if(mode!=='place')hidePreview();updateHint();}
+function updateHint(){const hints={place:`✏️ Placement : ${NFC_RULES[selectedElemType]?.icon} ${NFC_RULES[selectedElemType]?.label} — Clique sur la grille`,select:'↖ Sélectionner : clique un élément pour voir son câblage',delete:'🗑 Supprimer : clique un élément pour le supprimer',draw:'🔲 Dessiner pièce : cliquer-glisser pour tracer un rectangle'};document.getElementById('hint').textContent=hints[currentMode]||'';}
+function zoom(delta){scale=Math.min(2,Math.max(0.3,scale+delta));document.getElementById('canvas-container').style.transform=`scale(${scale})`;document.getElementById('zoom-val').textContent=Math.round(scale*100)+'%';}
+function resetZoom(){scale=1;const c=document.getElementById('canvas-container');c.style.transform='scale(1)';document.getElementById('zoom-val').textContent='100%';}
+function saveToLocal(){localStorage.setItem('elecplan_state',JSON.stringify(state));}
+function loadFromLocal(){const saved=localStorage.getItem('elecplan_state');if(saved){try{state=JSON.parse(saved);toast('💾 Plan chargé depuis la sauvegarde','info');}catch(e){}}}
+function clearAll(){if(!confirm('Effacer tout le plan ? Cette action est irréversible.'))return;state={elements:[],circuits:[],rooms:[],nextId:1,nextCircuitId:1,nextRoomId:1};localStorage.removeItem('elecplan_state');document.getElementById('elements-layer').innerHTML='';document.getElementById('rooms-layer').innerHTML='';document.getElementById('svg-cables').innerHTML='';deselectElement();toast('🗑 Plan effacé','info');}
+function toast(msg,type='info'){const el=document.getElementById('toast');el.textContent=msg;el.className='show '+type;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.className='';},3000);}
+init();
+</script>
+</body>
+</html>
