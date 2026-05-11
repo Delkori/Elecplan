@@ -230,7 +230,7 @@ const WIRE_COLORS={
   terre:   {color:'#3FB950', label:'Terre PE (V/J)'},
   retour:  {color:'#E3B341', label:'Retour lampe (Orange)'},
   retourG: {color:'#E3B341', label:'Retour lampe G (Orange)'},
-  retourD: {color:'#F0A500', label:'Retour lampe D (Ambre)'},
+  retourD: {color:'#BC8CFF', label:'Retour lampe D (Violet)'},
   nav1:    {color:'#BC8CFF', label:'Navette 1 (Violet)'},
   nav2:    {color:'#EC4899', label:'Navette 2 (Rose)'},
 };
@@ -743,23 +743,38 @@ function drawWireBundle(svg,from,to,wires){
   const fx=from.x+CELL/2, fy=from.y+CELL/2;
   const tx=to.x+CELL/2,   ty=to.y+CELL/2;
   if(Math.abs(fx-tx)<2&&Math.abs(fy-ty)<2) return;
-  const n=wires.length, sp=2.4;
+  const n=wires.length, sp=4;
+
+  // Gaine (fond sombre)
   const sheath=document.createElementNS('http://www.w3.org/2000/svg','path');
   sheath.setAttribute('d',lPath(fx,fy,tx,ty,0));
   sheath.setAttribute('stroke','#0d1117');
-  sheath.setAttribute('stroke-width',String(n*sp+6));
+  sheath.setAttribute('stroke-width',String(n*sp+10));
   sheath.setAttribute('fill','none');
   sheath.setAttribute('stroke-linecap','round');
   sheath.setAttribute('stroke-linejoin','round');
   svg.appendChild(sheath);
+
+  // Contour gaine
   const sleeve=document.createElementNS('http://www.w3.org/2000/svg','path');
   sleeve.setAttribute('d',lPath(fx,fy,tx,ty,0));
-  sleeve.setAttribute('stroke','#21262d');
-  sleeve.setAttribute('stroke-width',String(n*sp+4));
+  sleeve.setAttribute('stroke','#30363d');
+  sleeve.setAttribute('stroke-width',String(n*sp+8));
   sleeve.setAttribute('fill','none');
   sleeve.setAttribute('stroke-linecap','round');
   sleeve.setAttribute('stroke-linejoin','round');
   svg.appendChild(sleeve);
+
+  // Fond sombre entre les fils
+  const bg=document.createElementNS('http://www.w3.org/2000/svg','path');
+  bg.setAttribute('d',lPath(fx,fy,tx,ty,0));
+  bg.setAttribute('stroke','#161b22');
+  bg.setAttribute('stroke-width',String(n*sp+4));
+  bg.setAttribute('fill','none');
+  bg.setAttribute('stroke-linecap','round');
+  svg.appendChild(bg);
+
+  // Fils individuels — chaque fil suit son propre chemin en L décalé
   wires.forEach((type,i)=>{
     const wc=WIRE_COLORS[type];
     if(!wc) return;
@@ -767,26 +782,38 @@ function drawWireBundle(svg,from,to,wires){
     const wire=document.createElementNS('http://www.w3.org/2000/svg','path');
     wire.setAttribute('d',lPath(fx,fy,tx,ty,off));
     wire.setAttribute('stroke',wc.color);
-    wire.setAttribute('stroke-width','1.7');
+    wire.setAttribute('stroke-width','2.5');
     wire.setAttribute('fill','none');
     wire.setAttribute('stroke-linecap','round');
+    wire.setAttribute('opacity','0.95');
     svg.appendChild(wire);
   });
+
+  // Point de départ
+  const dotS=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dotS.setAttribute('cx',String(fx)); dotS.setAttribute('cy',String(fy)); dotS.setAttribute('r','6');
+  dotS.setAttribute('fill','#161b22');
+  dotS.setAttribute('stroke',WIRE_COLORS[wires[0]]?.color||'#888');
+  dotS.setAttribute('stroke-width','2');
+  svg.appendChild(dotS);
+
+  // Point d'arrivée
   const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-  dot.setAttribute('cx',tx);
-  dot.setAttribute('cy',ty);
-  dot.setAttribute('r','5');
-  dot.setAttribute('fill','#0d1117');
+  dot.setAttribute('cx',String(tx)); dot.setAttribute('cy',String(ty)); dot.setAttribute('r','7');
+  dot.setAttribute('fill','#161b22');
   dot.setAttribute('stroke',WIRE_COLORS[wires[Math.floor(n/2)]]?.color||'#888');
-  dot.setAttribute('stroke-width','2');
+  dot.setAttribute('stroke-width','2.5');
   svg.appendChild(dot);
 }
 
+// Chemin en L : horizontal d'abord, puis vertical.
+// off décale chaque fil perpendiculairement — Y sur le segment H, X sur le segment V.
+// Les fils se séparent clairement sur toute leur longueur.
 function lPath(fx,fy,tx,ty,off){
   const dx=tx-fx, dy=ty-fy;
   if(Math.abs(dx)<2) return `M${fx+off} ${fy} L${tx+off} ${ty}`;
   if(Math.abs(dy)<2) return `M${fx} ${fy+off} L${tx} ${ty+off}`;
-  return `M${fx} ${fy+off} L${tx} ${fy+off} L${tx} ${ty}`;
+  return `M${fx} ${fy+off} L${tx+off} ${fy+off} L${tx+off} ${ty}`;
 }
 
 function selectElement(id){
@@ -830,7 +857,7 @@ function showPanel(elem){
   html+=getCablagePanel(elem);
   const notes={
     lampe:'<b>⚡ NFC :</b> Le NEUTRE ne passe JAMAIS dans l\'interrupteur &mdash; direct tableau → lampe.',
-    inter2:'<b>⚡ NFC :</b> Phase commune shuntée sur les 2 mécanismes. Câble 5G1,5mm².',
+    inter2:'<b>⚡ NFC :</b> Câble 5G1,5mm² — Ph(rouge) + Retour G(orange) + Retour D(violet) + N(bleu) + T(V/J).',
     vav:'<b>⚡ NFC :</b> Câble 5G1,5mm² entre les 2 inter. &mdash; Ph + N + T + Navette 1 (violet) + Navette 2 (rose).',
     plaquecui:'<b>⚡ NFC 441 :</b> Circuit dédié obligatoire &mdash; NFC 15-100 art. 441.',
     irve:'<b>⚡ IEC 62955 :</b> Différentiel Type A obligatoire.',
@@ -899,17 +926,17 @@ function getCablagePanel(elem){
     });
   } else if(elem.type==='inter2'){
     const distTab=calcDist(elem,tableau);
-    html+=gaineBlock(`GAINE Tableau → Inter. double #${elem.id} (~${distTab.toFixed(1)}m) &mdash; Câble 5G1,5mm²`,
+    html+=gaineBlock(`GAINE Tableau → Inter. double #${elem.id} (~${distTab.toFixed(1)}m) — Câble 5G1,5mm²`,
       filRow('#FF7B72','Phase (rouge)','1.5mm²','Shuntée sur 2 bornes phase')+
       filRow('#E3B341','Retour lampe G (orange)','1.5mm²','Sortie BTN Gauche → Groupe 1')+
-      filRow('#F0A500','Retour lampe D (ambre)','1.5mm²','Sortie BTN Droit → Groupe 2')+
+      filRow('#BC8CFF','Retour lampe D (violet)','1.5mm²','Sortie BTN Droit → Groupe 2')+
       filRow('#58A6FF','Neutre (bleu)','1.5mm²','Direct tableau → lampes')+
       filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
     elem.linkedLampes.forEach(lid=>{
       const l=state.elements.find(e=>e.id===lid);
       if(l){
         html+=gaineBlock(`GAINE Inter. double → Lampe #${l.id} (Groupe ${l.groupe||1})`,
-          filRow(l.groupe===2?'#F0A500':'#E3B341',l.groupe===2?'Retour lampe D (ambre)':'Retour lampe G (orange)','1.5mm²','Borne phase DCL')+
+          filRow(l.groupe===2?'#BC8CFF':'#E3B341',l.groupe===2?'Retour lampe D (violet)':'Retour lampe G (orange)','1.5mm²','Borne phase DCL')+
           filRow('#58A6FF','Neutre (bleu)','1.5mm²','Borne N DCL')+
           filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
       }
@@ -923,7 +950,7 @@ function getCablagePanel(elem){
       filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
     if(pair){
       const distP=calcDist(elem,pair);
-      html+=gaineBlock(`GAINE VaV #${elem.id} → VaV #${pair.id} (~${distP.toFixed(1)}m) &mdash; Câble 5G1,5mm²`,
+      html+=gaineBlock(`GAINE VaV #${elem.id} → VaV #${pair.id} (~${distP.toFixed(1)}m) — Câble 5G1,5mm²`,
         filRow('#BC8CFF','Navette 1 (violet)','1.5mm²','L1 inter.1 → L1 inter.2')+
         filRow('#EC4899','Navette 2 (rose)','1.5mm²','L2 inter.1 → L2 inter.2')+
         filRow('#58A6FF','Neutre (bleu)','1.5mm²','Traverse inter.2 → lampe')+
