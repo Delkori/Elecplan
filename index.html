@@ -1,656 +1,1174 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ElecPlan — Planification électrique</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --primary:#1a56db;--primary-dark:#1e429f;
-      --secondary:#f59e0b;
-      --bg:#f9fafb;--surface:#fff;
-      --text:#111827;--muted:#6b7280;
-      --border:#e5e7eb;
-      --danger:#ef4444;--success:#10b981;--warning:#f59e0b
-    }
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
-
-    /* HEADER */
-    header{background:var(--primary);color:#fff;padding:0 24px;height:60px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 4px rgba(0,0,0,.15);position:fixed;top:0;left:0;right:0;z-index:100}
-    .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px}
-    .logo svg{width:28px;height:28px}
-
-    /* LAYOUT */
-    .layout{display:flex;margin-top:60px;min-height:calc(100vh - 60px)}
-
-    /* SIDEBAR */
-    .sidebar{width:240px;background:#fff;border-right:1px solid var(--border);padding:16px 0;position:fixed;top:60px;bottom:0;overflow-y:auto}
-    .nav-section-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 20px 4px}
-    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--muted);font-size:14px;font-weight:500;transition:all .15s;user-select:none}
-    .nav-item:hover{background:var(--bg);color:var(--text)}
-    .nav-item.active{background:#eff6ff;color:var(--primary);border-right:2px solid var(--primary)}
-    .nav-item svg{width:18px;height:18px;flex-shrink:0}
-
-    /* MAIN */
-    .main{margin-left:240px;flex:1;padding:28px}
-    .view{display:none}.view.active{display:block}
-
-    /* PAGE HEADER */
-    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-    .page-title{font-size:22px;font-weight:700}
-    .page-subtitle{font-size:14px;color:var(--muted);margin-top:2px}
-
-    /* BUTTONS */
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
-    .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
-    .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg)}
-    .btn svg{width:16px;height:16px}
-
-    /* CARD */
-    .card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px}
-
-    /* STATS */
-    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
-    .stat-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 20px}
-    .stat-label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-    .stat-value{font-size:28px;font-weight:700;margin-top:4px}
-    .stat-unit{font-size:14px;font-weight:400;color:var(--muted);margin-left:4px}
-    .stat-card.blue .stat-value{color:var(--primary)}
-    .stat-card.amber .stat-value{color:var(--warning)}
-    .stat-card.green .stat-value{color:var(--success)}
-    .stat-card.red .stat-value{color:var(--danger)}
-
-    /* TABLE */
-    .table-container{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
-    .table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-    .table-title{font-weight:600;font-size:15px}
-    table{width:100%;border-collapse:collapse}
-    thead th{text-align:left;padding:10px 16px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border)}
-    tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
-    tbody tr:last-child{border-bottom:none}
-    tbody tr:hover{background:#f9fafb}
-    td{padding:12px 16px;font-size:14px;vertical-align:middle}
-
-    /* BADGES */
-    .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500}
-    .badge-blue{background:#eff6ff;color:#1d4ed8}
-    .badge-green{background:#f0fdf4;color:#166534}
-    .badge-amber{background:#fffbeb;color:#92400e}
-    .badge-red{background:#fef2f2;color:#991b1b}
-    .badge-gray{background:#f3f4f6;color:#374151}
-
-    /* ACTION BUTTONS */
-    .action-btn{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;color:var(--muted);transition:all .15s}
-    .action-btn:hover{background:var(--bg);color:var(--text)}
-    .action-btn.danger:hover{background:#fef2f2;color:var(--danger)}
-    .action-btn svg{width:16px;height:16px;display:block}
-
-    /* MODAL */
-    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
-    .modal-overlay.open{display:flex}
-    .modal{background:#fff;border-radius:12px;width:500px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2)}
-    .modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-    .modal-title{font-size:17px;font-weight:600}
-    .modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);border-radius:4px}
-    .modal-close:hover{background:var(--bg)}
-    .modal-body{padding:20px 24px}
-    .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
-
-    /* FORM */
-    .form-group{margin-bottom:16px}
-    .form-label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
-    .form-input,.form-select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;color:var(--text);transition:border-color .15s}
-    .form-input:focus,.form-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,219,.1)}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-    /* PANEL CARDS */
-    .panel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
-    .circuit-card{background:#fff;border:2px solid var(--border);border-radius:8px;padding:14px;transition:all .15s}
-    .circuit-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(26,86,219,.1)}
-    .circuit-card.on{border-color:var(--success)}
-    .circuit-card.overload{border-color:var(--danger)}
-    .circuit-card-name{font-size:13px;font-weight:600;margin-bottom:4px}
-    .circuit-card-type{font-size:11px;color:var(--muted);margin-bottom:8px}
-    .circuit-card-amp{font-size:20px;font-weight:700;color:var(--primary)}
-    .circuit-card-amp-unit{font-size:12px;color:var(--muted)}
-    .circuit-card-toggle{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
-
-    /* TOGGLE */
-    .toggle-switch{position:relative;width:36px;height:20px;display:inline-block}
-    .toggle-switch input{opacity:0;width:0;height:0}
-    .toggle-slider{position:absolute;inset:0;background:#d1d5db;border-radius:20px;cursor:pointer;transition:.2s}
-    .toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-    input:checked+.toggle-slider{background:var(--success)}
-    input:checked+.toggle-slider::before{transform:translateX(16px)}
-
-    /* ALERT */
-    .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:8px;font-size:14px;margin-bottom:16px}
-    .alert-warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
-    .alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
-    .alert svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
-
-    /* EMPTY STATE */
-    .empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
-    .empty-state svg{width:48px;height:48px;margin:0 auto 12px;opacity:.3}
-    .empty-state h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
-    .empty-state p{font-size:14px}
-
-    /* PROGRESS */
-    .progress-bar{height:6px;background:var(--border);border-radius:99px;overflow:hidden}
-    .progress-fill{height:100%;border-radius:99px;transition:width .3s}
-
-    @media(max-width:768px){
-      .sidebar{display:none}
-      .main{margin-left:0;padding:16px}
-      .stats-grid{grid-template-columns:1fr 1fr}
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElecPlan - Planificateur Électrique NFC 15-100</title>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-hover: #30363d;
+    --border: #30363d;
+    --border-light: #21262d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --red: #ff7b72;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+    --pink: #ec4899;
+    --blue: #58a6ff;
+    --sidebar-w: 210px;
+    --panel-w: 300px;
+    --header-h: 52px;
+    --bar-h: 32px;
+    --cell: 72;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 13px; }
+  #header { height: var(--header-h); background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; z-index: 100; }
+  #header .logo { font-size: 18px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  #header .logo span { font-size: 11px; background: var(--orange); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  #header .spacer { flex: 1; }
+  .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
+  .btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  #main { display: flex; flex: 1; overflow: hidden; }
+  #sidebar { width: var(--sidebar-w); background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-section { padding: 10px 8px 4px; }
+  .sidebar-title { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 0 4px 6px; }
+  .mode-btn { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; border: 1px solid transparent; }
+  .mode-btn:hover { background: var(--bg-hover); }
+  .mode-btn.active { background: rgba(88,166,255,0.12); border-color: var(--accent); color: var(--accent); }
+  .mode-btn .mode-icon { font-size: 16px; width: 22px; text-align: center; }
+  .mode-label { font-size: 12px; font-weight: 500; }
+  .elem-btn { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; cursor: pointer; transition: all 0.15s; margin-bottom: 1px; border: 1px solid transparent; }
+  .elem-btn:hover { background: var(--bg-hover); }
+  .elem-btn.selected { background: rgba(88,166,255,0.1); border-color: rgba(88,166,255,0.4); color: var(--accent); }
+  .elem-icon { font-size: 15px; width: 20px; text-align: center; }
+  .elem-label { font-size: 11px; flex: 1; }
+  .elem-section { font-size: 9px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 4px; border-radius: 3px; }
+  .divider { height: 1px; background: var(--border); margin: 6px 8px; }
+  .fil-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 11px; }
+  .fil-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); }
+  .legend-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px; font-size: 10px; color: var(--text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
+  #canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #canvas-bar { height: var(--bar-h); background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 16px; flex-shrink: 0; font-size: 11px; color: var(--text-secondary); }
+  #canvas-bar #hint { flex: 1; color: var(--accent); font-style: italic; }
+  #canvas-container { flex: 1; overflow: auto; position: relative; background: var(--bg-primary); cursor: crosshair; user-select: none; }
+  #canvas-container.mode-select { cursor: default; }
+  #canvas-container.mode-delete { cursor: not-allowed; }
+  #canvas-container.mode-draw { cursor: crosshair; }
+  #canvas-container.dragging { cursor: grabbing; }
+  #canvas-inner { position: relative; width: 3500px; height: 2500px; transform-origin: 0 0; }
+  #grid-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+  #svg-cables { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; overflow: visible; }
+  #rooms-layer { position: absolute; top: 0; left: 0; z-index: 1; }
+  #elements-layer { position: absolute; top: 0; left: 0; z-index: 5; }
+  #preview-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; }
+  #panel { width: var(--panel-w); background: var(--bg-secondary); border-left: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; padding: 12px; }
+  #panel h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
+  .panel-empty { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 40px; line-height: 1.8; }
+  .info-card { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+  .info-card-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-light); }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text-secondary); font-size: 11px; }
+  .info-val { font-size: 11px; font-weight: 600; }
+  .badge { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .badge-ok { background: rgba(63,185,80,0.2); color: var(--green); }
+  .badge-warn { background: rgba(227,179,65,0.2); color: var(--orange); }
+  .badge-err { background: rgba(255,123,114,0.2); color: var(--red); }
+  .badge-info { background: rgba(88,166,255,0.2); color: var(--blue); }
+  .gaine-block { background: var(--bg-primary); border-radius: 6px; padding: 10px; margin-top: 8px; border-left: 3px solid var(--accent); }
+  .gaine-title { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .note-nfc { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.2); border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 10px; color: var(--blue); line-height: 1.5; }
+  .element { position: absolute; width: 64px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; border: 2px solid var(--border); background: var(--bg-tertiary); cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; user-select: none; font-size: 22px; }
+  .element.draggable:hover { cursor: grab; }
+  .element.dragging-elem { opacity: 0.7; cursor: grabbing; z-index: 20; }
+  .element .elem-num { font-size: 9px; color: var(--text-muted); position: absolute; top: 2px; right: 4px; font-weight: 600; }
+  .element .elem-lbl { font-size: 9px; color: var(--text-secondary); position: absolute; bottom: 2px; text-align: center; max-width: 60px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .element.status-ok { border-color: var(--green); box-shadow: 0 0 6px rgba(63,185,80,0.3); }
+  .element.status-warn { border-color: var(--orange); box-shadow: 0 0 6px rgba(227,179,65,0.3); }
+  .element.status-err { border-color: var(--red); box-shadow: 0 0 6px rgba(255,123,114,0.3); }
+  .element.selected { border-color: var(--accent); box-shadow: 0 0 10px rgba(88,166,255,0.5); z-index: 6; }
+  .element.magnetic { border-color: var(--green); animation: pulse-green 1s infinite; }
+  @keyframes pulse-green { 0%,100%{ box-shadow: 0 0 4px rgba(63,185,80,0.3); } 50%{ box-shadow: 0 0 14px rgba(63,185,80,0.8); } }
+  .room { position: absolute; border: 2px solid var(--accent); background: rgba(88,166,255,0.05); border-radius: 4px; cursor: pointer; }
+  .room .room-label { position: absolute; top: 4px; left: 6px; font-size: 11px; font-weight: 600; color: var(--accent); }
+  .room .room-dim { position: absolute; top: 18px; left: 6px; font-size: 9px; color: var(--text-muted); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 20px; min-width: 400px; max-width: 520px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .modal .modal-sub { font-size: 11px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5; padding: 8px; background: var(--bg-tertiary); border-radius: 6px; }
+  .conn-option { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+  .conn-option:hover { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+  .conn-option .opt-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .conn-option .opt-detail { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg-tertiary); border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 400px; text-align: center; }
+  #toast.show { opacity: 1; }
+  #toast.err { border-color: var(--red); color: var(--red); }
+  #toast.ok { border-color: var(--green); color: var(--green); }
+  #toast.info { border-color: var(--accent); color: var(--accent); }
+  .mat-section { margin-bottom: 14px; }
+  .mat-section h4 { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .mat-row { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 4px; font-size: 11px; }
+  .mat-row:nth-child(odd) { background: var(--bg-tertiary); }
+  .mat-row .mat-qty { font-weight: 600; color: var(--orange); }
+  #room-preview { position: absolute; border: 2px dashed var(--accent); background: rgba(88,166,255,0.06); pointer-events: none; display: none; z-index: 11; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
 </head>
 <body>
-
-<header>
-  <div class="logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-    ElecPlan
-  </div>
-  <span style="margin-left:auto;font-size:13px;opacity:.7">Planification électrique — NF C 15-100</span>
-</header>
-
-<div class="layout">
-  <nav class="sidebar">
-    <div class="nav-section">
-      <div class="nav-section-title">Vue générale</div>
-      <div class="nav-item active" data-view="tableau-de-bord">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Tableau de bord
-      </div>
-      <div class="nav-item" data-view="tableau-electrique">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
-        Tableau électrique
-      </div>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-title">Installation</div>
-      <div class="nav-item" data-view="circuits">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
-        Circuits
-      </div>
-      <div class="nav-item" data-view="cables">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M4 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2M4 12a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg>
-        Sections câbles
-      </div>
-      <div class="nav-item" data-view="calcul">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4"/><rect x="9" y="3" width="6" height="8" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-        Calcul de charge
-      </div>
-    </div>
-  </nav>
-
-  <main class="main">
-
-    <!-- TABLEAU DE BORD -->
-    <div class="view active" id="view-tableau-de-bord">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Tableau de bord</div>
-          <div class="page-subtitle">Vue d'ensemble de votre installation</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Ajouter un circuit
-        </button>
-      </div>
-      <div class="stats-grid" id="stats-grid"></div>
-      <div class="table-container">
-        <div class="table-header">
-          <span class="table-title">Tous les circuits</span>
-          <span id="circuit-count" style="font-size:13px;color:var(--muted)">0 circuit</span>
-        </div>
-        <div id="circuits-table-body"></div>
-      </div>
-    </div>
-
-    <!-- TABLEAU ÉLECTRIQUE -->
-    <div class="view" id="view-tableau-electrique">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Tableau électrique</div>
-          <div class="page-subtitle">Vue schématique des disjoncteurs</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Ajouter
-        </button>
-      </div>
-      <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <span style="font-weight:600">Disjoncteur général</span>
-          <span id="general-amp" style="font-size:22px;font-weight:700;color:var(--primary)">0 A</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="general-progress" style="width:0%;background:var(--success)"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px">
-          <span>Charge totale active</span>
-          <span id="general-pct">0%</span>
-        </div>
-      </div>
-      <div class="panel-grid" id="panel-grid"></div>
-    </div>
-
-    <!-- CIRCUITS -->
-    <div class="view" id="view-circuits">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Circuits</div>
-          <div class="page-subtitle">Gestion de vos circuits électriques</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Ajouter un circuit
-        </button>
-      </div>
-      <div class="table-container">
-        <div id="circuits-detail-body"></div>
-      </div>
-    </div>
-
-    <!-- SECTIONS CÂBLES -->
-    <div class="view" id="view-cables">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Sections câbles</div>
-          <div class="page-subtitle">Recommandations selon la NF C 15-100</div>
-        </div>
-      </div>
-      <div class="alert alert-info">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <div>Sections calculées selon la norme <strong>NF C 15-100</strong> pour câbles en installation fixe (mode de pose B2 — conduit encastré).</div>
-      </div>
-      <div class="table-container" style="margin-bottom:24px">
-        <div class="table-header"><span class="table-title">Tableau de référence</span></div>
-        <table>
-          <thead><tr><th>Usage</th><th>Puissance max</th><th>Intensité max</th><th>Disjoncteur</th><th>Section câble</th></tr></thead>
-          <tbody>
-            <tr><td>Éclairage</td><td>2 300 W</td><td>10 A</td><td><span class="badge badge-blue">10 A</span></td><td><strong>1,5 mm²</strong></td></tr>
-            <tr><td>Prises courant</td><td>3 450 W</td><td>16 A</td><td><span class="badge badge-blue">16 A</span></td><td><strong>2,5 mm²</strong></td></tr>
-            <tr><td>Gros électroménager</td><td>4 600 W</td><td>20 A</td><td><span class="badge badge-blue">20 A</span></td><td><strong>2,5 mm²</strong></td></tr>
-            <tr><td>Lave-linge / Sèche-linge</td><td>5 750 W</td><td>25 A</td><td><span class="badge badge-amber">25 A</span></td><td><strong>4 mm²</strong></td></tr>
-            <tr><td>Chauffe-eau</td><td>5 750 W</td><td>25 A</td><td><span class="badge badge-amber">25 A</span></td><td><strong>4 mm²</strong></td></tr>
-            <tr><td>Plaque de cuisson</td><td>7 360 W</td><td>32 A</td><td><span class="badge badge-red">32 A</span></td><td><strong>6 mm²</strong></td></tr>
-            <tr><td>Four + Cuisson</td><td>9 200 W</td><td>40 A</td><td><span class="badge badge-red">40 A</span></td><td><strong>10 mm²</strong></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="table-container">
-        <div class="table-header"><span class="table-title">Conformité par circuit</span></div>
-        <div id="cables-by-circuit"></div>
-      </div>
-    </div>
-
-    <!-- CALCUL DE CHARGE -->
-    <div class="view" id="view-calcul">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Calcul de charge</div>
-          <div class="page-subtitle">Analyse de la puissance totale de l'installation</div>
-        </div>
-      </div>
-      <div id="calcul-content"></div>
-    </div>
-
-  </main>
+<div id="header">
+  <div class="logo">⚡ ElecPlan <span>NFC 15-100</span></div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="showMateriel()">&#128203; Liste matériel</button>
+  <button class="btn" onclick="saveToLocal()">&#128190; Sauvegarder</button>
+  <button class="btn danger" onclick="clearAll()">&#128465; Effacer tout</button>
 </div>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title" id="modal-title">Ajouter un circuit</span>
-      <button class="modal-close" onclick="closeModal()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
+<div id="main">
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Mode</div>
+      <div class="mode-btn active" id="mode-place" onclick="setMode('place')"><span class="mode-icon">✏️</span><span class="mode-label">Placer</span></div>
+      <div class="mode-btn" id="mode-select" onclick="setMode('select')"><span class="mode-icon">↖</span><span class="mode-label">Sélectionner / Déplacer</span></div>
+      <div class="mode-btn" id="mode-delete" onclick="setMode('delete')"><span class="mode-icon">🗑</span><span class="mode-label">Supprimer</span></div>
+      <div class="mode-btn" id="mode-draw" onclick="setMode('draw')"><span class="mode-icon">🔲</span><span class="mode-label">Dessiner pièce</span></div>
     </div>
-    <div class="modal-body">
-      <input type="hidden" id="edit-id">
-      <div class="form-group">
-        <label class="form-label">Nom du circuit *</label>
-        <input type="text" class="form-input" id="f-nom" placeholder="ex: Éclairage salon">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Type</label>
-          <select class="form-select" id="f-type" onchange="onTypeChange()">
-            <option value="eclairage">Éclairage</option>
-            <option value="prise">Prises de courant</option>
-            <option value="electomenager">Gros électroménager</option>
-            <option value="cuisson">Cuisson</option>
-            <option value="chauffage">Chauffage / Clim</option>
-            <option value="chauffe-eau">Chauffe-eau</option>
-            <option value="autre">Autre</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Puissance (W) *</label>
-          <input type="number" class="form-input" id="f-puissance" placeholder="ex: 1200" min="0">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Disjoncteur (A)</label>
-          <select class="form-select" id="f-disjoncteur">
-            <option value="10">10 A</option>
-            <option value="16" selected>16 A</option>
-            <option value="20">20 A</option>
-            <option value="25">25 A</option>
-            <option value="32">32 A</option>
-            <option value="40">40 A</option>
-            <option value="63">63 A</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Section câble (mm²)</label>
-          <select class="form-select" id="f-section">
-            <option value="1.5">1,5 mm²</option>
-            <option value="2.5" selected>2,5 mm²</option>
-            <option value="4">4 mm²</option>
-            <option value="6">6 mm²</option>
-            <option value="10">10 mm²</option>
-            <option value="16">16 mm²</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Pièce / Zone</label>
-        <input type="text" class="form-input" id="f-piece" placeholder="ex: Salon, Cuisine, Chambre 1…">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <input type="text" class="form-input" id="f-notes" placeholder="Informations supplémentaires…">
-      </div>
-      <div id="f-calc-hint" class="alert alert-info" style="margin-top:8px;display:none">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-        <span id="f-calc-text"></span>
-      </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Éléments</div>
+      <div id="elem-list"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCircuit()">Enregistrer</button>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Couleurs des fils NFC</div>
+      <div id="wire-legend"></div>
     </div>
   </div>
+  <div id="canvas-wrap">
+    <div id="canvas-bar">
+      <span id="hint">💡 Commence par poser le tableau électrique</span>
+      <span id="coords">X: 0 &nbsp;Y: 0</span>
+      <button class="btn" onclick="zoom(-0.15)">−</button>
+      <span id="zoom-val">100%</span>
+      <button class="btn" onclick="zoom(0.15)">+</button>
+      <button class="btn" onclick="resetZoom()">↺</button>
+    </div>
+    <div id="canvas-container">
+      <div id="canvas-inner">
+        <canvas id="grid-canvas"></canvas>
+        <svg id="svg-cables"></svg>
+        <div id="rooms-layer"></div>
+        <div id="elements-layer"></div>
+        <div id="preview-layer">
+          <div id="elem-preview" style="position:absolute;display:none;pointer-events:none;"></div>
+          <div id="room-preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="panel">
+    <h3>Câblage &amp; Infos</h3>
+    <div id="panel-content" class="panel-empty">← Sélectionne un élément<br>pour voir son câblage<br>détaillé</div>
+  </div>
 </div>
-
+<div id="modal-conn" class="modal-overlay" style="display:none"><div class="modal"><h2 id="modal-title">Connexion</h2><div class="modal-sub" id="modal-sub"></div><div id="modal-options"></div><div class="modal-btns"><button class="btn" onclick="cancelModal()">Annuler (non relié)</button></div></div></div>
+<div id="modal-mat" class="modal-overlay" style="display:none"><div class="modal" style="min-width:500px"><h2>📋 Liste de matériel</h2><div id="mat-content"></div><div class="modal-btns"><button class="btn primary" onclick="copyMat()">📋 Copier</button><button class="btn" onclick="printMat()">🖨 Imprimer</button><button class="btn" onclick="document.getElementById('modal-mat').style.display='none'">Fermer</button></div></div></div>
+<div id="modal-room" class="modal-overlay" style="display:none"><div class="modal" style="min-width:320px"><h2>🔲 Nom de la pièce</h2><input id="room-name-input" type="text" placeholder="Ex: Salon, Cuisine, Chambre..." style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:14px;margin:10px 0;"><div class="modal-btns"><button class="btn primary" onclick="confirmRoom()">Valider</button><button class="btn" onclick="cancelRoom()">Annuler</button></div></div></div>
+<div id="toast"></div>
 <script>
-// State
-let circuits = JSON.parse(localStorage.getItem('elecplan-circuits') || 'null');
-if (!circuits) {
-  circuits = [
-    {id:1,nom:'Éclairage séjour',type:'eclairage',puissance:500,disjoncteur:10,section:1.5,piece:'Séjour',notes:'',on:true},
-    {id:2,nom:'Prises séjour',type:'prise',puissance:2500,disjoncteur:16,section:2.5,piece:'Séjour',notes:'',on:true},
-    {id:3,nom:'Éclairage cuisine',type:'eclairage',puissance:400,disjoncteur:10,section:1.5,piece:'Cuisine',notes:'',on:true},
-    {id:4,nom:'Plaque de cuisson',type:'cuisson',puissance:7000,disjoncteur:32,section:6,piece:'Cuisine',notes:'',on:false},
-    {id:5,nom:'Four',type:'electomenager',puissance:2200,disjoncteur:20,section:2.5,piece:'Cuisine',notes:'',on:true},
-    {id:6,nom:'Lave-linge',type:'electomenager',puissance:2200,disjoncteur:20,section:2.5,piece:'Buanderie',notes:'',on:false},
-    {id:7,nom:'Chauffe-eau',type:'chauffe-eau',puissance:2400,disjoncteur:20,section:2.5,piece:'Salle de bain',notes:'Chauffe-eau 150L',on:true},
-    {id:8,nom:'Éclairage chambres',type:'eclairage',puissance:300,disjoncteur:10,section:1.5,piece:'Chambres',notes:'',on:true},
-  ];
-  persist();
+const CELL=72, CANVAS_W=3500, CANVAS_H=2500;
+
+// ─── Constantes NFC ──────────────────────────────────────────────────────────
+const NFC_RULES={
+  tableau: {label:'Tableau électrique',icon:'⚡',section:null,disj:null,diff:null,gaine:null,circuit:'unique',maxSerie:1,dedie:true},
+  lampe:   {label:'Lampe / DCL',icon:'💡',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:8,dedie:false},
+  inter:   {label:'Interrupteur',icon:'🔘',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},
+  inter2:  {label:'Inter. double',icon:'🔲',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},
+  vav:     {label:'Va-et-vient',icon:'⇔️',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:null,dedie:false},
+  prise:   {label:'Prise standard',icon:'🔌',section:'2.5mm²',disj:'16A',diff:'Type A',gaine:'ICTA 16',circuit:'prises',maxSerie:8,dedie:false},
+  prisecui:{label:'Prise cuisine',icon:'🍳',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 16',circuit:'cuisine',maxSerie:5,dedie:false},
+  plaquecui:{label:'Plaque cuisson',icon:'🔥',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},
+  four:    {label:'Four encastré',icon:'♨️',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},
+  lavelinge:{label:'Lave-linge',icon:'👕',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  lavevaisselle:{label:'Lave-vaisselle',icon:'🧹',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  sechelinge:{label:'Sèche-linge',icon:'💨',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  frigo:   {label:'Réfrigérateur',icon:'🧊',section:'2.5mm²',disj:'16A',diff:'Type AC',gaine:'ICTA 16',circuit:'prises',maxSerie:8,dedie:false},
+  chauffe: {label:'Chauffe-eau',icon:'🚿',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  vmc:     {label:'VMC',icon:'🌀',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'dedie',maxSerie:1,dedie:true},
+  clim:    {label:'Climatisation',icon:'❄️',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  irve:    {label:'Borne IRVE',icon:'🚗',section:'6mm²',disj:'32A',diff:'Type A',gaine:'ICTA 25',circuit:'dedie',maxSerie:1,dedie:true},
+  chauffage:{label:'Chauffage élec.',icon:'🌡️',section:'2.5mm²',disj:'20A',diff:'Type AC',gaine:'ICTA 20',circuit:'dedie',maxSerie:1,dedie:true},
+  microondes:{label:'Micro-ondes',icon:'📡',section:'2.5mm²',disj:'20A',diff:'Type A',gaine:'ICTA 16',circuit:'dedie',maxSerie:1,dedie:true},
+  hotte:   {label:'Hotte aspirante',icon:'💨',section:'1.5mm²',disj:'10A',diff:'Type AC',gaine:'ICTA 16',circuit:'eclairage',maxSerie:8,dedie:false}
+};
+
+const ELEM_CATEGORIES=[
+  {name:'Installations',types:['tableau']},
+  {name:'Éclairage',types:['lampe','inter','inter2','vav','hotte']},
+  {name:'Prises',types:['prise','prisecui']},
+  {name:'Cuisine',types:['plaquecui','four','microondes']},
+  {name:'Électroménager',types:['lavelinge','lavevaisselle','sechelinge','frigo','chauffe']},
+  {name:'Spéciaux',types:['vmc','clim','irve','chauffage']}
+];
+
+// ─── Couleurs des fils NFC 15-100 ─────────────────────────────────────────────
+const WIRE_COLORS={
+  phase:   {color:'#FF7B72', label:'Phase (Rouge/Brun)'},
+  neutre:  {color:'#58A6FF', label:'Neutre (Bleu)'},
+  terre:   {color:'#3FB950', label:'Terre PE (V/J)'},
+  retour:  {color:'#E3B341', label:'Retour lampe (Orange)'},
+  retourG: {color:'#E3B341', label:'Retour lampe G (Orange)'},
+  retourD: {color:'#F0A500', label:'Retour lampe D (Ambre)'},
+  nav1:    {color:'#BC8CFF', label:'Navette 1 (Violet)'},
+  nav2:    {color:'#EC4899', label:'Navette 2 (Rose)'},
+};
+
+// ─── État ────────────────────────────────────────────────────────────────────
+let state={elements:[],circuits:[],rooms:[],nextId:1,nextCircuitId:1,nextRoomId:1};
+let currentMode='place', selectedElemType='tableau', selectedElemId=null, scale=1;
+let pendingElement=null;
+let drawingRoom=false, roomStart=null, tempRoom=null;
+let toastTimer=null;
+// Drag-and-drop
+let dragId=null, isDragging=false;
+let dragOX=0, dragOY=0, dragClientX0=0, dragClientY0=0;
+const DRAG_THRESHOLD=6;
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+function init(){
+  buildSidebar();
+  buildWireLegend();
+  drawGrid();
+  bindCanvas();
+  loadFromLocal();
+  render();
+  updateHint();
 }
-let nextId = Math.max(...circuits.map(c=>c.id),0)+1;
-let editingId = null;
 
-function persist(){localStorage.setItem('elecplan-circuits',JSON.stringify(circuits));}
-
-// Navigation
-document.querySelectorAll('.nav-item').forEach(el=>{
-  el.addEventListener('click',function(){
-    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    this.classList.add('active');
-    document.getElementById('view-'+this.dataset.view).classList.add('active');
-    render();
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+function buildSidebar(){
+  const el=document.getElementById('elem-list');
+  el.innerHTML='';
+  ELEM_CATEGORIES.forEach(cat=>{
+    const title=document.createElement('div');
+    title.className='sidebar-title';
+    title.style.marginTop='6px';
+    title.textContent=cat.name;
+    el.appendChild(title);
+    cat.types.forEach(type=>{
+      const r=NFC_RULES[type],div=document.createElement('div');
+      div.className='elem-btn'+(type===selectedElemType?' selected':'');
+      div.id='ebtn-'+type;
+      div.innerHTML=`<span class="elem-icon">${r.icon}</span><span class="elem-label">${r.label}</span>${r.section?`<span class="elem-section">${r.section}</span>`:''}` ;
+      div.onclick=()=>selectElemType(type);
+      el.appendChild(div);
+    });
   });
-});
-
-// Helpers
-function totalActive(){return circuits.filter(c=>c.on).reduce((s,c)=>s+c.puissance,0);}
-function totalAll(){return circuits.reduce((s,c)=>s+c.puissance,0);}
-function recSection(amp){
-  if(amp<=10)return'1,5 mm²';
-  if(amp<=20)return'2,5 mm²';
-  if(amp<=25)return'4 mm²';
-  if(amp<=32)return'6 mm²';
-  if(amp<=40)return'10 mm²';
-  return'16 mm²';
-}
-function recSectionVal(amp){
-  if(amp<=10)return 1.5;
-  if(amp<=20)return 2.5;
-  if(amp<=25)return 4;
-  if(amp<=32)return 6;
-  if(amp<=40)return 10;
-  return 16;
-}
-const TYPE_LABEL={eclairage:'Éclairage',prise:'Prises',electomenager:'Électroménager',cuisson:'Cuisson',chauffage:'Chauffage/Clim','chauffe-eau':'Chauffe-eau',autre:'Autre'};
-const TYPE_BADGE={eclairage:'badge-amber',prise:'badge-blue',electomenager:'badge-green',cuisson:'badge-red',chauffage:'badge-red','chauffe-eau':'badge-blue',autre:'badge-gray'};
-
-// Render
-function render(){
-  renderStats();
-  renderTable();
-  renderDetail();
-  renderPanel();
-  renderCables();
-  renderCalcul();
 }
 
-function renderStats(){
-  const tot=totalAll(),act=totalActive();
-  const actA=(act/230).toFixed(0);
-  document.getElementById('stats-grid').innerHTML=`
-    <div class="stat-card blue"><div class="stat-label">Circuits</div><div class="stat-value">${circuits.length}<span class="stat-unit">total</span></div></div>
-    <div class="stat-card amber"><div class="stat-label">Puissance installée</div><div class="stat-value">${(tot/1000).toFixed(1)}<span class="stat-unit">kW</span></div></div>
-    <div class="stat-card green"><div class="stat-label">Charge active</div><div class="stat-value">${(act/1000).toFixed(1)}<span class="stat-unit">kW</span></div></div>
-    <div class="stat-card ${actA>63?'red':actA>45?'amber':'blue'}"><div class="stat-label">Intensité active</div><div class="stat-value">${actA}<span class="stat-unit">A</span></div></div>
-  `;
-  document.getElementById('circuit-count').textContent=circuits.length+' circuit'+(circuits.length>1?'s':'');
+function buildWireLegend(){
+  const el=document.getElementById('wire-legend');
+  el.innerHTML=Object.entries(WIRE_COLORS).map(([k,v])=>
+    `<div class="legend-row"><div class="legend-dot" style="background:${v.color}"></div><span>${v.label}</span></div>`
+  ).join('');
 }
 
-function circuitRowHTML(c,showToggle){
-  const amp=(c.puissance/230).toFixed(1);
-  return `<tr>
-    <td><div style="font-weight:500">${c.nom}</div>${c.piece?`<div style="font-size:12px;color:var(--muted)">${c.piece}</div>`:''}</td>
-    <td><span class="badge ${TYPE_BADGE[c.type]||'badge-gray'}">${TYPE_LABEL[c.type]||c.type}</span></td>
-    <td>${c.puissance.toLocaleString('fr-FR')} W</td>
-    <td>${amp} A</td>
-    <td><span class="badge badge-blue">${c.disjoncteur} A</span></td>
-    <td><strong>${String(c.section).replace('.',',')} mm²</strong></td>
-    <td>${showToggle
-      ?`<label class="toggle-switch"><input type="checkbox" ${c.on?'checked':''} onchange="toggleCircuit(${c.id})"><span class="toggle-slider"></span></label>`
-      :`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;${c.on?'color:var(--success)':'color:var(--muted)'}"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>${c.on?'Actif':'Inactif'}</span>`
-    }</td>
-    <td>
-      <button class="action-btn" onclick="editCircuit(${c.id})" title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-      <button class="action-btn danger" onclick="deleteCircuit(${c.id})" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>
-    </td>
-  </tr>`;
+function selectElemType(type){
+  selectedElemType=type;
+  document.querySelectorAll('.elem-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('ebtn-'+type)?.classList.add('selected');
+  if(currentMode!=='place')setMode('place');
+  updateHint();
 }
 
-const TABLE_HEAD=`<thead><tr><th>Circuit</th><th>Type</th><th>Puissance</th><th>Intensité</th><th>Disjoncteur</th><th>Section</th><th>État</th><th>Actions</th></tr></thead>`;
-const EMPTY_HTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><h3>Aucun circuit</h3><p>Ajoutez votre premier circuit pour commencer</p></div>`;
-
-function renderTable(){
-  const el=document.getElementById('circuits-table-body');
-  if(!el)return;
-  el.innerHTML=circuits.length===0?EMPTY_HTML:`<table>${TABLE_HEAD}<tbody>${circuits.map(c=>circuitRowHTML(c,false)).join('')}</tbody></table>`;
+// ─── Grille ──────────────────────────────────────────────────────────────────
+function drawGrid(){
+  const canvas=document.getElementById('grid-canvas');
+  canvas.width=CANVAS_W; canvas.height=CANVAS_H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+  ctx.strokeStyle='rgba(48,54,61,0.5)'; ctx.lineWidth=0.5;
+  for(let x=0;x<=CANVAS_W;x+=CELL){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CANVAS_H);ctx.stroke();}
+  for(let y=0;y<=CANVAS_H;y+=CELL){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CANVAS_W,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(48,54,61,0.9)'; ctx.lineWidth=1;
+  for(let x=0;x<=CANVAS_W;x+=CELL*5){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CANVAS_H);ctx.stroke();}
+  for(let y=0;y<=CANVAS_H;y+=CELL*5){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CANVAS_W,y);ctx.stroke();}
 }
 
-function renderDetail(){
-  const el=document.getElementById('circuits-detail-body');
-  if(!el)return;
-  el.innerHTML=circuits.length===0?EMPTY_HTML:`<table>${TABLE_HEAD}<tbody>${circuits.map(c=>circuitRowHTML(c,true)).join('')}</tbody></table>`;
+// ─── Canvas events ───────────────────────────────────────────────────────────
+function bindCanvas(){
+  const c=document.getElementById('canvas-container');
+  c.addEventListener('mousemove',onMouseMove);
+  c.addEventListener('mousedown',onCanvasMouseDown);
+  c.addEventListener('mouseup',onMouseUp);
+  c.addEventListener('click',onCanvasClick);
+  c.addEventListener('mouseleave',onMouseLeave);
+  document.addEventListener('mouseup',onDocMouseUp);
 }
 
-function renderPanel(){
-  const actA=totalActive()/230;
-  const maxA=63;
-  const pct=Math.min((actA/maxA)*100,100);
-  const color=pct>80?'var(--danger)':pct>60?'var(--warning)':'var(--success)';
-  const gen=document.getElementById('general-amp');
-  const prog=document.getElementById('general-progress');
-  const pctEl=document.getElementById('general-pct');
-  if(gen) gen.textContent=actA.toFixed(0)+' A / '+maxA+' A';
-  if(prog){prog.style.width=pct+'%';prog.style.background=color;}
-  if(pctEl) pctEl.textContent=pct.toFixed(0)+'%';
-  const grid=document.getElementById('panel-grid');
-  if(!grid)return;
-  if(circuits.length===0){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg><h3>Tableau vide</h3><p>Ajoutez des circuits</p></div>`;return;}
-  grid.innerHTML=circuits.map(c=>{
-    const a=(c.puissance/230).toFixed(1);
-    const overload=parseFloat(a)>c.disjoncteur;
-    return `<div class="circuit-card ${c.on?'on':''} ${overload?'overload':''}"><div class="circuit-card-name">${c.nom}</div><div class="circuit-card-type">${TYPE_LABEL[c.type]||c.type}${c.piece?' · '+c.piece:''}</div><div><span class="circuit-card-amp">${c.disjoncteur}</span><span class="circuit-card-amp-unit"> A</span></div><div class="circuit-card-toggle"><span style="font-size:11px;color:var(--muted)">${c.puissance} W</span><label class="toggle-switch"><input type="checkbox" ${c.on?'checked':''} onchange="toggleCircuit(${c.id})"><span class="toggle-slider"></span></label></div>${overload?'<div style="font-size:11px;color:var(--danger);margin-top:6px;font-weight:500">⚠ Surcharge</div>':''}</div>`;
-  }).join('');
+function getGridPos(e){
+  const c=document.getElementById('canvas-container');
+  const rect=c.getBoundingClientRect();
+  const rawX=(e.clientX-rect.left+c.scrollLeft)/scale;
+  const rawY=(e.clientY-rect.top+c.scrollTop)/scale;
+  const gx=Math.floor(rawX/CELL)*CELL;
+  const gy=Math.floor(rawY/CELL)*CELL;
+  return{px:rawX,py:rawY,gx,gy};
+}
+
+function getInnerPos(e){
+  const c=document.getElementById('canvas-container');
+  const rect=c.getBoundingClientRect();
+  return{
+    x:(e.clientX-rect.left+c.scrollLeft)/scale,
+    y:(e.clientY-rect.top+c.scrollTop)/scale
+  };
+}
+
+function onCanvasMouseDown(e){
+  if(currentMode==='draw'){
+    const{gx,gy}=getGridPos(e);
+    drawingRoom=true; roomStart={gx,gy};
+  }
+}
+
+function onMouseMove(e){
+  const{gx,gy}=getGridPos(e);
+  document.getElementById('coords').textContent=`X: ${Math.floor(gx/CELL)}m  Y: ${Math.floor(gy/CELL)}m`;
+
+  // Drag-and-drop
+  if(dragId!==null){
+    const moved=Math.sqrt((e.clientX-dragClientX0)**2+(e.clientY-dragClientY0)**2);
+    if(moved>DRAG_THRESHOLD) isDragging=true;
+    if(isDragging){
+      const{x,y}=getInnerPos(e);
+      const sx=Math.max(0,Math.round((x-dragOX)/CELL)*CELL);
+      const sy=Math.max(0,Math.round((y-dragOY)/CELL)*CELL);
+      const domEl=document.getElementById('elem-'+dragId);
+      if(domEl){domEl.style.left=(sx+4)+'px'; domEl.style.top=(sy+4)+'px';}
+      // live cable update
+      const elem=state.elements.find(e2=>e2.id===dragId);
+      if(elem){const ox=elem.x,oy=elem.y; elem.x=sx; elem.y=sy; renderCables(); elem.x=ox; elem.y=oy;}
+      return;
+    }
+    return;
+  }
+
+  if(currentMode==='place'){showPreview(gx,gy);highlightMagnetic(gx,gy);}
+  else if(currentMode==='draw'&&drawingRoom&&roomStart){updateRoomPreview(roomStart.gx,roomStart.gy,gx,gy);}
+}
+
+function onMouseLeave(){
+  hidePreview();
+  if(!isDragging){dragId=null;}
+}
+
+function onMouseUp(e){
+  if(isDragging&&dragId!==null){
+    finalizeDrag(e);
+    return;
+  }
+  if(dragId!==null){
+    // click (no drag threshold reached) — select
+    if(currentMode==='select') selectElement(dragId);
+    dragId=null; isDragging=false;
+    return;
+  }
+  // Room drawing
+  if(currentMode==='draw'&&drawingRoom&&roomStart){
+    const{gx,gy}=getGridPos(e);
+    drawingRoom=false;
+    const x=Math.min(roomStart.gx,gx),y=Math.min(roomStart.gy,gy);
+    const w=Math.abs(gx-roomStart.gx)+CELL,h=Math.abs(gy-roomStart.gy)+CELL;
+    if(w<CELL*2||h<CELL*2){hideRoomPreview();roomStart=null;return;}
+    tempRoom={x,y,w,h};
+    document.getElementById('room-preview').style.display='none';
+    document.getElementById('room-name-input').value='';
+    document.getElementById('modal-room').style.display='flex';
+    roomStart=null;
+  }
+}
+
+function onDocMouseUp(e){
+  if(isDragging&&dragId!==null) finalizeDrag(e);
+  else if(dragId!==null){dragId=null;isDragging=false;}
+}
+
+function finalizeDrag(e){
+  const elem=state.elements.find(x=>x.id===dragId);
+  if(elem){
+    const{x,y}=getInnerPos(e);
+    const sx=Math.max(0,Math.round((x-dragOX)/CELL)*CELL);
+    const sy=Math.max(0,Math.round((y-dragOY)/CELL)*CELL);
+    const occupied=state.elements.some(ex=>ex.id!==dragId&&ex.x===sx&&ex.y===sy);
+    if(!occupied&&sx<CANVAS_W&&sy<CANVAS_H){
+      elem.x=sx; elem.y=sy;
+      elem.pieceId=getPieceAt(sx,sy);
+      renderElement(elem);
+      renderCables();
+      saveToLocal();
+    } else {
+      renderElement(elem); // reset to stored position
+      if(occupied) toast('⚠️ Case déjà occupée !','err');
+    }
+  }
+  const c=document.getElementById('canvas-container');
+  c.classList.remove('dragging');
+  dragId=null; isDragging=false;
+}
+
+function onCanvasClick(e){
+  if(isDragging) return;
+  if(currentMode==='draw') return;
+  const{gx,gy}=getGridPos(e);
+  if(currentMode==='place') placeElement(gx,gy);
+  else if(currentMode==='select'){
+    const el=findElementAt(gx,gy);
+    if(el) selectElement(el.id);
+    else deselectElement();
+  }
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+function hidePreview(){
+  document.getElementById('elem-preview').style.display='none';
+  clearMagneticHighlight();
+}
+
+function showPreview(gx,gy){
+  const r=NFC_RULES[selectedElemType],prev=document.getElementById('elem-preview');
+  const occupied=isCellOccupied(gx,gy);
+  prev.style.cssText=`display:flex;position:absolute;left:${gx+4}px;top:${gy+4}px;width:64px;height:64px;font-size:22px;align-items:center;justify-content:center;border-radius:8px;border:2px solid ${occupied?'var(--red)':'var(--accent)'};background:${occupied?'rgba(255,123,114,0.15)':'rgba(88,166,255,0.1)'};opacity:0.75;pointer-events:none;`;
+  prev.textContent=r.icon;
+}
+
+function updateRoomPreview(x1,y1,x2,y2){
+  const x=Math.min(x1,x2),y=Math.min(y1,y2),w=Math.abs(x2-x1)+CELL,h=Math.abs(y2-y1)+CELL;
+  const rp=document.getElementById('room-preview');
+  rp.style.cssText=`display:block;left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
+}
+
+function hideRoomPreview(){document.getElementById('room-preview').style.display='none';}
+
+// ─── Placement ────────────────────────────────────────────────────────────────
+function placeElement(gx,gy){
+  if(selectedElemType!=='tableau'&&!state.elements.find(e=>e.type==='tableau')){toast('⚠️ Pose le tableau électrique en premier !','err');return;}
+  if(selectedElemType==='tableau'&&state.elements.find(e=>e.type==='tableau')){toast('⚠️ Un seul tableau par plan !','err');return;}
+  if(isCellOccupied(gx,gy)){toast('⚠️ Case déjà occupée !','err');return;}
+  const elem={id:state.nextId++,type:selectedElemType,x:gx,y:gy,circuitId:null,linkedInter:null,linkedLampes:[],seriesFrom:null,groupe:1,pairVav:null,pieceId:getPieceAt(gx,gy),status:'warn'};
+  state.elements.push(elem);
+  renderElement(elem);
+  if(selectedElemType==='tableau'){elem.status='ok';toast('✅ Tableau posé ! Commence à placer tes éléments.','ok');updateElementDOM(elem);saveToLocal();return;}
+  setTimeout(()=>openMagneticModal(elem),80);
+  saveToLocal();
+}
+
+function isCellOccupied(gx,gy){return state.elements.some(e=>e.x===gx&&e.y===gy);}
+function findElementAt(gx,gy){return state.elements.find(e=>e.x===gx&&e.y===gy)||null;}
+function getPieceAt(px,py){const r=state.rooms.find(r=>px>=r.x&&px<r.x+r.w&&py>=r.y&&py<r.y+r.h);return r?r.id:null;}
+
+// ─── Système magnétique ──────────────────────────────────────────────────────
+function detectCompatibles(elem){
+  const RADIUS=5*CELL,
+        nearby=state.elements.filter(e=>e.id!==elem.id&&Math.sqrt((e.x-elem.x)**2+(e.y-elem.y)**2)<=RADIUS).sort((a,b)=>Math.sqrt((a.x-elem.x)**2+(a.y-elem.y)**2)-Math.sqrt((b.x-elem.x)**2+(b.y-elem.y)**2)),
+        tableau=state.elements.find(e=>e.type==='tableau'),
+        options=[];
+
+  if(['prise','frigo'].includes(elem.type)){
+    state.circuits.filter(c=>c.type==='prises').forEach(c=>{
+      const used=state.elements.filter(e=>e.circuitId===c.id).length;
+      if(used<NFC_RULES[elem.type].maxSerie){
+        const lastElem=state.elements.filter(e=>e.circuitId===c.id).pop(),dist=lastElem?calcDist(elem,lastElem):0;
+        options.push({title:`🔌 Brancher en série sur Circuit ${c.id} (${used}/${NFC_RULES[elem.type].maxSerie})`,detail:`Câble 3G2,5mm² depuis Prise #${lastElem?.id||'?'} → ~${dist.toFixed(1)}m + 15%\nGaine ICTA 16mm`,action:()=>connectSeries(elem,c.id,lastElem)});
+      }
+    });
+    options.push({title:`➕ Créer nouveau circuit DJ ${NFC_RULES[elem.type].disj} depuis tableau`,detail:`Câble 3G2,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m + 15%\nGaine ICTA 16mm`,action:()=>createNewCircuit(elem,'prises')});
+  }
+  else if(elem.type==='prisecui'){
+    state.circuits.filter(c=>c.type==='cuisine').forEach(c=>{
+      const used=state.elements.filter(e=>e.circuitId===c.id).length;
+      if(used<5){
+        const lastElem=state.elements.filter(e=>e.circuitId===c.id).pop(),dist=lastElem?calcDist(elem,lastElem):0;
+        options.push({title:`🍳 Brancher en série sur Circuit cuisine ${c.id} (${used}/5)`,detail:`Câble 3G2,5mm² depuis Prise #${lastElem?.id||'?'} → ~${dist.toFixed(1)}m`,action:()=>connectSeries(elem,c.id,lastElem)});
+      }
+    });
+    options.push({title:'➕ Créer nouveau circuit cuisine DJ 20A depuis tableau',detail:`Câble 3G2,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m`,action:()=>createNewCircuit(elem,'cuisine')});
+  }
+  else if(elem.type==='lampe'||elem.type==='hotte'){
+    nearby.filter(e=>['inter','inter2'].includes(e.type)&&e.linkedLampes.length<(e.type==='inter2'?2:8)).forEach(inter=>{
+      const dist=calcDist(elem,inter);
+      options.push({title:`🔘 Relier à ${NFC_RULES[inter.type].label} #${inter.id}`,detail:`Gaine retour lampe (orange) + neutre + terre → ~${dist.toFixed(1)}m`,action:()=>linkLampeToInter(elem,inter)});
+    });
+    state.circuits.filter(c=>c.type==='eclairage').forEach(c=>{
+      const used=state.elements.filter(e=>e.circuitId===c.id&&(e.type==='lampe'||e.type==='hotte')).length;
+      if(used<8)options.push({title:`💡 Ajouter au circuit éclairage ${c.id} (${used}/8)`,detail:'Circuit DJ 10A existant',action:()=>connectSeries(elem,c.id,null)});
+    });
+    options.push({title:'➕ Créer nouveau circuit éclairage DJ 10A',detail:`Câble 3G1,5mm² depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m`,action:()=>createNewCircuit(elem,'eclairage')});
+  }
+  else if(elem.type==='inter'){
+    nearby.filter(e=>(e.type==='lampe'||e.type==='hotte')&&!e.linkedInter).forEach(lampe=>{
+      const dist=calcDist(elem,lampe);
+      options.push({title:`💡 Commander la Lampe #${lampe.id}`,detail:`Retour lampe (orange) + neutre + terre → ~${dist.toFixed(1)}m`,action:()=>linkLampeToInter(lampe,elem)});
+    });
+    options.push({title:'➕ Créer circuit éclairage DJ 10A (sans lampe pour l\'instant)',detail:'L\'interrupteur sera relié lors du placement de la lampe',action:()=>createNewCircuit(elem,'eclairage')});
+  }
+  else if(elem.type==='inter2'){
+    const freeLampes=nearby.filter(e=>(e.type==='lampe'||e.type==='hotte')&&!e.linkedInter),grouped=[];
+    for(let i=0;i<freeLampes.length&&grouped.length<2;i++)grouped.push(freeLampes[i]);
+    if(grouped.length>0)options.push({title:`🔲 Commander ${grouped.length} lampe(s) sur 2 groupes`,detail:`Groupe 1: Lampe #${grouped[0]?.id||'?'}  Groupe 2: Lampe #${grouped[1]?.id||'à définir'}\nCâble 5G1,5mm²`,action:()=>{grouped.forEach((l,i)=>{l.groupe=i+1;linkLampeToInter(l,elem);});}});
+    options.push({title:'➕ Créer circuit éclairage DJ 10A',detail:'Inter. double — relier les lampes ensuite',action:()=>createNewCircuit(elem,'eclairage')});
+  }
+  else if(elem.type==='vav'){
+    nearby.filter(e=>e.type==='vav'&&!e.pairVav&&e.id!==elem.id).forEach(v2=>{
+      const dist=calcDist(elem,v2),freeLampes=state.elements.filter(e=>(e.type==='lampe'||e.type==='hotte')&&!e.linkedInter);
+      options.push({title:`⇔️ Former la paire VaV avec inter. #${v2.id}`,detail:`Câble 5G1,5mm² entre les 2 VaV → ~${dist.toFixed(1)}m\n(Ph+N+T+Nav.1+Nav.2)${freeLampes[0]?`\nCommande Lampe #${freeLampes[0].id}`:''}`,action:()=>{
+        elem.pairVav=v2.id;v2.pairVav=elem.id;
+        if(freeLampes[0]){freeLampes[0].linkedInter=elem.id;elem.linkedLampes.push(freeLampes[0].id);freeLampes[0].status='ok';}
+        createNewCircuit(elem,'eclairage');createNewCircuit(v2,'eclairage');
+        updateElementDOM(elem);updateElementDOM(v2);renderCables();
+        toast('✅ Paire VaV configurée !','ok');
+      }});
+    });
+    options.push({title:'➕ Poser le 2e interrupteur VaV',detail:'Cet inter. sera en attente — ajoute le 2e VaV pour former la paire',action:()=>{elem.status='warn';updateElementDOM(elem);toast('⚠️ Ajoute le 2e interrupteur Va-et-vient','info');}});
+  }
+  else{
+    options.push({title:`➕ Circuit dédié DJ ${NFC_RULES[elem.type].disj} depuis tableau`,detail:`Câble 3G${NFC_RULES[elem.type].section} depuis tableau → ~${tableau?calcDist(elem,tableau).toFixed(1):'?'}m\nGaine ${NFC_RULES[elem.type].gaine}`,action:()=>createNewCircuit(elem,'dedie')});
+  }
+  return options;
+}
+
+function highlightMagnetic(gx,gy){
+  clearMagneticHighlight();
+  if(currentMode!=='place')return;
+  const RADIUS=5*CELL;
+  state.elements.forEach(e=>{
+    const d=Math.sqrt((e.x-gx)**2+(e.y-gy)**2),el=document.getElementById('elem-'+e.id);
+    if(el&&d<=RADIUS&&d>0)el.classList.add('magnetic');
+  });
+}
+function clearMagneticHighlight(){document.querySelectorAll('.element.magnetic').forEach(el=>el.classList.remove('magnetic'));}
+
+function openMagneticModal(elem){
+  const r=NFC_RULES[elem.type],options=detectCompatibles(elem);
+  document.getElementById('modal-title').innerHTML=`${r.icon} ${r.label} <span class="badge badge-warn">#${elem.id}</span>`;
+  document.getElementById('modal-sub').innerHTML=`${r.disj?`DJ ${r.disj} &mdash; ${r.diff} &mdash; ${r.section} &mdash; ${r.gaine}`:''}<br>Sélectionne comment connecter cet élément&nbsp;:`;
+  const optDiv=document.getElementById('modal-options');
+  optDiv.innerHTML='';
+  options.forEach(opt=>{
+    const d=document.createElement('div');
+    d.className='conn-option';
+    d.innerHTML=`<div class="opt-title">${opt.title}</div><div class="opt-detail">${opt.detail.replace(/\n/g,'<br>')}</div>`;
+    d.onclick=()=>{opt.action();closeModal();};
+    optDiv.appendChild(d);
+  });
+  pendingElement=elem;
+  document.getElementById('modal-conn').style.display='flex';
+}
+
+function closeModal(){document.getElementById('modal-conn').style.display='none';pendingElement=null;render();}
+function cancelModal(){if(pendingElement){pendingElement.status='warn';updateElementDOM(pendingElement);}closeModal();toast('⚠️ Élément posé mais non relié','info');}
+
+function createNewCircuit(elem,type){
+  const cId=state.nextCircuitId++;
+  state.circuits.push({id:cId,type,disj:NFC_RULES[elem.type].disj});
+  elem.circuitId=cId;elem.status='ok';
+  updateElementDOM(elem);renderCables();
+  toast(`✅ Circuit #${cId} créé (DJ ${NFC_RULES[elem.type].disj})`,'ok');
+}
+
+function connectSeries(elem,circuitId,fromElem){
+  elem.circuitId=circuitId;elem.seriesFrom=fromElem?fromElem.id:null;
+  const used=state.elements.filter(e=>e.circuitId===circuitId).length,maxS=NFC_RULES[elem.type].maxSerie;
+  elem.status=(maxS&&used>=maxS)?'err':'ok';
+  if(maxS&&used>=maxS)toast(`⚠️ Circuit #${circuitId} plein (${maxS}/${maxS})`,'err');
+  else toast(`✅ Branché en série sur Circuit #${circuitId} (${used}/${maxS||'∞'})`,'ok');
+  updateElementDOM(elem);renderCables();
+}
+
+function linkLampeToInter(lampe,inter){
+  if(!lampe.circuitId){
+    let c=state.circuits.find(c2=>c2.id===inter.circuitId);
+    if(!c){
+      const cId=state.nextCircuitId++;
+      state.circuits.push({id:cId,type:'eclairage',disj:'10A'});
+      inter.circuitId=cId;
+    }
+    lampe.circuitId=inter.circuitId;
+  }
+  lampe.linkedInter=inter.id;
+  if(!inter.linkedLampes.includes(lampe.id))inter.linkedLampes.push(lampe.id);
+  lampe.status='ok';inter.status='ok';
+  updateElementDOM(lampe);updateElementDOM(inter);renderCables();
+  toast(`✅ Lampe #${lampe.id} reliée à Inter. #${inter.id}`,'ok');
+}
+
+function calcDist(a,b){
+  const dx=Math.abs(a.x-b.x)/CELL,dy=Math.abs(a.y-b.y)/CELL;
+  let d=(dx+dy)*1.0;
+  const pieceA=getPieceAt(a.x,a.y),pieceB=getPieceAt(b.x,b.y);
+  if(pieceA!==pieceB)d+=0.5;
+  d+=2.5;
+  return d*1.15;
+}
+
+// ─── Rendu ────────────────────────────────────────────────────────────────────
+function render(){renderRooms();renderElements();renderCables();}
+
+function renderRooms(){
+  const layer=document.getElementById('rooms-layer');
+  layer.innerHTML='';
+  state.rooms.forEach(r=>{
+    const div=document.createElement('div');
+    div.className='room';div.id='room-'+r.id;
+    div.style.cssText=`left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;`;
+    div.innerHTML=`<div class="room-label">${r.name}</div><div class="room-dim">${(r.w/CELL).toFixed(1)}m × ${(r.h/CELL).toFixed(1)}m</div>`;
+    div.ondblclick=()=>renameRoom(r.id);
+    layer.appendChild(div);
+  });
+}
+
+function renderElements(){
+  document.getElementById('elements-layer').innerHTML='';
+  state.elements.forEach(elem=>renderElement(elem));
+}
+
+function renderElement(elem){
+  const r=NFC_RULES[elem.type],layer=document.getElementById('elements-layer');
+  let el=document.getElementById('elem-'+elem.id);
+  if(!el){
+    el=document.createElement('div');
+    el.id='elem-'+elem.id;
+    layer.appendChild(el);
+  }
+  el.style.left=(elem.x+4)+'px';
+  el.style.top=(elem.y+4)+'px';
+  el.innerHTML=`<span>${r.icon}</span><span class="elem-num">#${elem.id}</span><span class="elem-lbl">${r.label}</span>`;
+  const statCls=elem.status?('status-'+elem.status):'status-neutral';
+  const selCls=elem.id===selectedElemId?' selected':'';
+  el.className=`element ${statCls}${selCls}`;
+  if(currentMode==='select') el.classList.add('draggable');
+
+  // Drag start
+  el.onmousedown=(e)=>{
+    if(currentMode==='select'){
+      e.stopPropagation();
+      dragId=elem.id;isDragging=false;
+      dragClientX0=e.clientX;dragClientY0=e.clientY;
+      const{x,y}=getInnerPos(e);
+      dragOX=x-elem.x;dragOY=y-elem.y;
+      document.getElementById('canvas-container').classList.add('dragging');
+    } else if(currentMode==='delete'){
+      e.stopPropagation();
+      deleteElement(elem.id);
+    }
+  };
+  // Prevent canvas click from firing on element in place mode
+  el.onclick=(e)=>{
+    if(currentMode==='place') e.stopPropagation();
+  };
+}
+
+function updateElementDOM(elem){renderElement(elem);}
+
+// ─── Câbles multi-fils ───────────────────────────────────────────────────────
+
+// Returns list of {from, to, wires:[wireKey,...]} to draw for a given element.
+function getConnections(elem){
+  const tableau=state.elements.find(e=>e.type==='tableau');
+  if(!tableau) return [];
+  const conns=[];
+
+  switch(elem.type){
+    // Prises & équipements dédiés: tableau/précédent → élément
+    case 'prise': case 'frigo': case 'prisecui':
+    case 'plaquecui': case 'four': case 'lavelinge': case 'lavevaisselle':
+    case 'sechelinge': case 'chauffe': case 'vmc': case 'clim': case 'irve':
+    case 'chauffage': case 'microondes': case 'hotte':{
+      if(elem.circuitId){
+        const from=elem.seriesFrom?state.elements.find(x=>x.id===elem.seriesFrom):tableau;
+        if(from) conns.push({from,to:elem,wires:['phase','neutre','terre']});
+      }
+      break;
+    }
+    case 'inter':{
+      // GAINE 1 : Tableau → Interrupteur (phase + neutre pass-through + terre)
+      if(elem.circuitId){
+        conns.push({from:tableau,to:elem,wires:['phase','neutre','terre']});
+      }
+      // GAINE 2 : Interrupteur → chaque lampe (retour orange + neutre + terre)
+      elem.linkedLampes.forEach(lid=>{
+        const lampe=state.elements.find(x=>x.id===lid);
+        if(lampe) conns.push({from:elem,to:lampe,wires:['retour','neutre','terre']});
+      });
+      break;
+    }
+    case 'inter2':{
+      // GAINE unique : Tableau → Inter. double (phase + retourG + retourD + neutre + terre)
+      if(elem.circuitId){
+        conns.push({from:tableau,to:elem,wires:['phase','retourG','retourD','neutre','terre']});
+      }
+      // Sorties vers chaque lampe selon son groupe
+      elem.linkedLampes.forEach(lid=>{
+        const lampe=state.elements.find(x=>x.id===lid);
+        if(lampe) conns.push({from:elem,to:lampe,wires:[lampe.groupe===2?'retourD':'retourG','neutre','terre']});
+      });
+      break;
+    }
+    case 'lampe':{
+      // Si la lampe n'a pas d'interrupteur dédié, câble direct depuis tableau/précédent
+      // Si elle a un inter, les connexions sont gérées par l'inter (on ne re-dessine pas)
+      if(!elem.linkedInter&&elem.circuitId){
+        const from=elem.seriesFrom?state.elements.find(x=>x.id===elem.seriesFrom):tableau;
+        if(from) conns.push({from,to:elem,wires:['phase','neutre','terre']});
+      }
+      break;
+    }
+    case 'vav':{
+      // GAINE 1 : Tableau → VaV1 (phase + neutre + terre)
+      if(elem.circuitId){
+        conns.push({from:tableau,to:elem,wires:['phase','neutre','terre']});
+      }
+      // GAINE 2 : VaV1 → VaV2 (navettes + neutre + terre) — on ne dessine que depuis le plus petit ID
+      if(elem.pairVav){
+        const pair=state.elements.find(x=>x.id===elem.pairVav);
+        if(pair&&elem.id<pair.id){
+          conns.push({from:elem,to:pair,wires:['nav1','nav2','neutre','terre']});
+        }
+      }
+      // GAINE 3 : VaV → Lampe (retour + neutre + terre)
+      elem.linkedLampes.forEach(lid=>{
+        const lampe=state.elements.find(x=>x.id===lid);
+        if(lampe) conns.push({from:elem,to:lampe,wires:['retour','neutre','terre']});
+      });
+      break;
+    }
+  }
+  return conns;
 }
 
 function renderCables(){
-  const el=document.getElementById('cables-by-circuit');
-  if(!el)return;
-  if(circuits.length===0){el.innerHTML=`<div class="empty-state"><p>Aucun circuit à analyser</p></div>`;return;}
-  el.innerHTML=`<table><thead><tr><th>Circuit</th><th>Puissance</th><th>Intensité calc.</th><th>Section recommandée</th><th>Section installée</th><th>Conformité</th></tr></thead><tbody>${
-    circuits.map(c=>{
-      const amp=c.puissance/230;
-      const rec=recSection(amp);
-      const recVal=recSectionVal(amp);
-      const ok=c.section>=recVal;
-      return `<tr><td><strong>${c.nom}</strong>${c.piece?`<br><span style="font-size:12px;color:var(--muted)">${c.piece}</span>`:''}</td><td>${c.puissance.toLocaleString('fr-FR')} W</td><td>${amp.toFixed(1)} A</td><td>${rec}</td><td>${String(c.section).replace('.',',')} mm²</td><td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'Conforme':'Sous-dimensionné'}</span></td></tr>`;
-    }).join('')
-  }</tbody></table>`;
-}
-
-function renderCalcul(){
-  const el=document.getElementById('calcul-content');
-  if(!el)return;
-  const tot=totalAll(),act=totalActive();
-  const actA=act/230;
-  const byType={};
-  circuits.forEach(c=>{
-    if(!byType[c.type])byType[c.type]={p:0,n:0};
-    byType[c.type].p+=c.puissance;byType[c.type].n++;
+  const svg=document.getElementById('svg-cables');
+  svg.setAttribute('width',CANVAS_W);
+  svg.setAttribute('height',CANVAS_H);
+  svg.innerHTML='';
+  const tableau=state.elements.find(e=>e.type==='tableau');
+  if(!tableau) return;
+  state.elements.forEach(elem=>{
+    if(elem.type==='tableau') return;
+    getConnections(elem).forEach(c=>drawWireBundle(svg,c.from,c.to,c.wires));
   });
-  const sub=actA<=6?6:actA<=9?9:actA<=12?12:actA<=15?15:actA<=18?18:actA<=24?24:actA<=30?30:actA<=36?36:45;
-  const SUBS=[[6,'Studio — très faible conso.'],[9,'Studio sans chauffage élec.'],[12,'Appartement 2-3 pièces'],[15,'Appartement avec lave-linge'],[18,'Maison sans chauffage élec.'],[24,'Maison avec chauffage élec.'],[30,'Grande maison'],[36,'Grande maison tout électrique'],[45,'Très grande propriété']];
-  el.innerHTML=`
-    <div class="stats-grid" style="margin-bottom:24px">
-      <div class="stat-card blue"><div class="stat-label">Puissance installée</div><div class="stat-value">${(tot/1000).toFixed(2)}<span class="stat-unit">kW</span></div></div>
-      <div class="stat-card amber"><div class="stat-label">Intensité installée</div><div class="stat-value">${(tot/230).toFixed(0)}<span class="stat-unit">A</span></div></div>
-      <div class="stat-card green"><div class="stat-label">Charge active</div><div class="stat-value">${(act/1000).toFixed(2)}<span class="stat-unit">kW</span></div></div>
-      <div class="stat-card ${sub>36?'red':'blue'}"><div class="stat-label">Abonnement recommandé</div><div class="stat-value">${sub}<span class="stat-unit">kVA</span></div></div>
-    </div>
-    ${actA>63?`<div class="alert alert-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>Attention :</strong> La charge active (${actA.toFixed(0)} A) dépasse la capacité du disjoncteur général 63 A.</div></div>`:''}
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-weight:600;margin-bottom:16px">Répartition par type</div>
-      ${Object.entries(byType).map(([type,d])=>{
-        const pct=tot>0?(d.p/tot*100).toFixed(0):0;
-        return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:14px"><span><span class="badge ${TYPE_BADGE[type]||'badge-gray'}">${TYPE_LABEL[type]||type}</span> <span style="color:var(--muted);font-size:12px">${d.n} circuit${d.n>1?'s':''}</span></span><span style="font-weight:600">${(d.p/1000).toFixed(2)} kW <span style="color:var(--muted);font-weight:400">(${pct}%)</span></span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:var(--primary)"></div></div></div>`;
-      }).join('')}
-    </div>
-    <div class="card">
-      <div style="font-weight:600;margin-bottom:12px">Guide d'abonnement EDF résidentiel</div>
-      <table style="width:100%"><thead><tr><th>Puissance</th><th>Intensité max</th><th>Usage type</th><th></th></tr></thead><tbody>
-        ${SUBS.map(([kva,desc])=>`<tr style="${sub===kva?'background:#eff6ff':''}"><td><strong>${kva} kVA</strong></td><td>${kva} A</td><td>${desc}</td><td>${sub===kva?'<span class="badge badge-green">Recommandé</span>':''}</td></tr>`).join('')}
-      </tbody></table>
-    </div>
-  `;
 }
 
-// Modal
-const TYPE_DEFAULTS={
-  eclairage:{d:10,s:1.5,h:'Éclairage : disjoncteur 10 A, câble 1,5 mm²'},
-  prise:{d:16,s:2.5,h:'Prises : disjoncteur 16 A, câble 2,5 mm²'},
-  electomenager:{d:20,s:2.5,h:'Électroménager : disjoncteur 20 A, câble 2,5 mm²'},
-  cuisson:{d:32,s:6,h:'Plaque de cuisson : disjoncteur 32 A, câble 6 mm²'},
-  chauffage:{d:20,s:2.5,h:'Vérifiez la puissance de l\'appareil.'},
-  'chauffe-eau':{d:20,s:2.5,h:'Chauffe-eau : disjoncteur 20 A, câble 2,5 mm²'},
-  autre:{d:16,s:2.5,h:'Sélectionnez les valeurs manuellement.'},
-};
+function drawWireBundle(svg,from,to,wires){
+  if(!from||!to) return;
+  const fx=from.x+CELL/2, fy=from.y+CELL/2;
+  const tx=to.x+CELL/2,   ty=to.y+CELL/2;
+  if(Math.abs(fx-tx)<2&&Math.abs(fy-ty)<2) return;
+  const n=wires.length, sp=2.4;
 
-function openModal(id=null){
-  editingId=id;
-  document.getElementById('modal-title').textContent=id?'Modifier le circuit':'Ajouter un circuit';
-  document.getElementById('f-calc-hint').style.display='none';
-  if(id){
-    const c=circuits.find(x=>x.id===id);
-    document.getElementById('edit-id').value=c.id;
-    document.getElementById('f-nom').value=c.nom;
-    document.getElementById('f-type').value=c.type;
-    document.getElementById('f-puissance').value=c.puissance;
-    document.getElementById('f-disjoncteur').value=c.disjoncteur;
-    document.getElementById('f-section').value=c.section;
-    document.getElementById('f-piece').value=c.piece||'';
-    document.getElementById('f-notes').value=c.notes||'';
-  } else {
-    ['edit-id','f-nom','f-puissance','f-piece','f-notes'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('f-type').value='prise';
-    document.getElementById('f-disjoncteur').value='16';
-    document.getElementById('f-section').value='2.5';
+  // Gaine (fond sombre)
+  const sheath=document.createElementNS('http://www.w3.org/2000/svg','path');
+  sheath.setAttribute('d',lPath(fx,fy,tx,ty,0));
+  sheath.setAttribute('stroke','#0d1117');
+  sheath.setAttribute('stroke-width',String(n*sp+6));
+  sheath.setAttribute('fill','none');
+  sheath.setAttribute('stroke-linecap','round');
+  sheath.setAttribute('stroke-linejoin','round');
+  svg.appendChild(sheath);
+
+  // Contour gaine (légèrement plus clair)
+  const sleeve=document.createElementNS('http://www.w3.org/2000/svg','path');
+  sleeve.setAttribute('d',lPath(fx,fy,tx,ty,0));
+  sleeve.setAttribute('stroke','#21262d');
+  sleeve.setAttribute('stroke-width',String(n*sp+4));
+  sleeve.setAttribute('fill','none');
+  sleeve.setAttribute('stroke-linecap','round');
+  sleeve.setAttribute('stroke-linejoin','round');
+  svg.appendChild(sleeve);
+
+  // Fils individuels colorés
+  wires.forEach((type,i)=>{
+    const wc=WIRE_COLORS[type];
+    if(!wc) return;
+    const off=(i-(n-1)/2)*sp;
+    const wire=document.createElementNS('http://www.w3.org/2000/svg','path');
+    // Segment horizontal : décalage en Y
+    // Segment vertical : décalage en X
+    // Les deux se rejoignent au coin (tx, fy) avec un léger arrondi visuel
+    wire.setAttribute('d',lPath(fx,fy,tx,ty,off));
+    wire.setAttribute('stroke',wc.color);
+    wire.setAttribute('stroke-width','1.7');
+    wire.setAttribute('fill','none');
+    wire.setAttribute('stroke-linecap','round');
+    svg.appendChild(wire);
+  });
+
+  // Point d'arrivée
+  const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx',tx);
+  dot.setAttribute('cy',ty);
+  dot.setAttribute('r','5');
+  dot.setAttribute('fill','#0d1117');
+  dot.setAttribute('stroke',WIRE_COLORS[wires[Math.floor(n/2)]]?.color||'#888');
+  dot.setAttribute('stroke-width','2');
+  svg.appendChild(dot);
+}
+
+// L-shape path: horizontal first, then vertical.
+// `off` offsets each segment perpendicular to its direction.
+function lPath(fx,fy,tx,ty,off){
+  const dx=tx-fx, dy=ty-fy;
+  if(Math.abs(dx)<2) return `M${fx+off} ${fy} L${tx+off} ${ty}`;
+  if(Math.abs(dy)<2) return `M${fx} ${fy+off} L${tx} ${ty+off}`;
+  // L-shape: H segment then V segment
+  // H segment: offset in Y, ends at (tx, fy+off)
+  // V segment: offset in X, starts at (tx+off, fy+off)
+  // Small diagonal to bridge the corner cleanly
+  return `M${fx} ${fy+off} L${tx-off*Math.sign(dx)*0} ${fy+off} L${tx} ${fy+off*0} L${tx} ${ty}`;
+  // Simplified clean version:
+  // return `M${fx} ${fy+off} L${tx} ${fy+off} L${tx} ${ty}`;
+}
+
+// ─── Sélection & Panneau ─────────────────────────────────────────────────────
+function selectElement(id){
+  selectedElemId=id;
+  document.querySelectorAll('.element').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('elem-'+id)?.classList.add('selected');
+  const elem=state.elements.find(e=>e.id===id);
+  if(elem) showPanel(elem);
+}
+
+function deselectElement(){
+  selectedElemId=null;
+  document.querySelectorAll('.element').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('panel-content').innerHTML='<div class="panel-empty">← Sélectionne un élément<br>pour voir son câblage<br>détaillé</div>';
+}
+
+function showPanel(elem){
+  const r=NFC_RULES[elem.type],
+        circuit=state.circuits.find(c=>c.id===elem.circuitId),
+        tableau=state.elements.find(e=>e.type==='tableau'),
+        dist=tableau?calcDist(elem,tableau):0,
+        used=circuit?state.elements.filter(e=>e.circuitId===circuit.id).length:0;
+
+  let statusBadge='';
+  if(elem.status==='ok') statusBadge='<span class="badge badge-ok">✅ Câblé</span>';
+  else if(elem.status==='warn') statusBadge='<span class="badge badge-warn">⚠️ Non relié</span>';
+  else if(elem.status==='err') statusBadge='<span class="badge badge-err">❌ Erreur</span>';
+
+  let html=`<div class="info-card"><div class="info-card-title">${r.icon} ${r.label} #${elem.id} ${statusBadge}</div>`;
+  if(r.disj){
+    html+=`
+      <div class="info-row"><span class="info-key">Disjoncteur</span><span class="info-val" style="color:var(--red)">DJ ${r.disj} courbe C</span></div>
+      <div class="info-row"><span class="info-key">Différentiel</span><span class="info-val" style="color:var(--blue)">${r.diff} 30mA</span></div>
+      <div class="info-row"><span class="info-key">Section câble</span><span class="info-val">${r.section}</span></div>
+      <div class="info-row"><span class="info-key">Gaine</span><span class="info-val" style="color:var(--green)">${r.gaine}</span></div>
+      <div class="info-row"><span class="info-key">Distance estimée</span><span class="info-val" style="color:var(--orange)">~${(dist/1.15).toFixed(1)}m</span></div>
+      <div class="info-row"><span class="info-key">Longueur + 15%</span><span class="info-val" style="color:var(--accent)">~${dist.toFixed(1)}m</span></div>`;
   }
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(()=>document.getElementById('f-nom').focus(),50);
-}
+  if(circuit){
+    html+=`<div class="info-row"><span class="info-key">Circuit #${circuit.id}</span><span class="info-val">${r.maxSerie?`${used}/${r.maxSerie} places`:'Dédié'}</span></div>`;
+  }
+  html+='</div>';
+  html+=getCablagePanel(elem);
 
-function closeModal(){
-  document.getElementById('modal-overlay').classList.remove('open');
-  editingId=null;
-}
-
-function onTypeChange(){
-  const d=TYPE_DEFAULTS[document.getElementById('f-type').value];
-  if(!d)return;
-  document.getElementById('f-disjoncteur').value=d.d;
-  document.getElementById('f-section').value=d.s;
-  document.getElementById('f-calc-text').textContent=d.h;
-  document.getElementById('f-calc-hint').style.display='flex';
-}
-
-function saveCircuit(){
-  const nom=document.getElementById('f-nom').value.trim();
-  const puissance=parseInt(document.getElementById('f-puissance').value);
-  if(!nom){alert('Veuillez saisir un nom.');document.getElementById('f-nom').focus();return;}
-  if(!puissance||puissance<=0){alert('Veuillez saisir une puissance valide.');document.getElementById('f-puissance').focus();return;}
-  const data={
-    nom,type:document.getElementById('f-type').value,
-    puissance,
-    disjoncteur:parseInt(document.getElementById('f-disjoncteur').value),
-    section:parseFloat(document.getElementById('f-section').value),
-    piece:document.getElementById('f-piece').value.trim(),
-    notes:document.getElementById('f-notes').value.trim(),
+  const notes={
+    lampe:'<b>⚡ NFC :</b> Le NEUTRE ne passe JAMAIS dans l\'interrupteur &mdash; direct tableau → lampe.',
+    inter2:'<b>⚡ NFC :</b> Phase commune shuntée sur les 2 mécanismes. Câble 5G1,5mm².',
+    vav:'<b>⚡ NFC :</b> Câble 5G1,5mm² entre les 2 inter. &mdash; Ph + N + T + Navette 1 (violet) + Navette 2 (rose).',
+    plaquecui:'<b>⚡ NFC 441 :</b> Circuit dédié obligatoire &mdash; NFC 15-100 art. 441.',
+    irve:'<b>⚡ IEC 62955 :</b> Différentiel Type A obligatoire.',
+    chauffe:'<b>⚡ NFC :</b> Contacteur jour/nuit recommandé.',
+    vmc:'<b>⚡ NFC :</b> Interrupteur de coupure obligatoire sur circuit VMC.'
   };
-  if(editingId){
-    const idx=circuits.findIndex(c=>c.id===editingId);
-    circuits[idx]={...circuits[idx],...data};
-  } else {
-    circuits.push({id:nextId++,on:true,...data});
+  if(notes[elem.type]) html+=`<div class="note-nfc">${notes[elem.type]}</div>`;
+  document.getElementById('panel-content').innerHTML=html;
+}
+
+function filRow(color,label,section,role){
+  return `<div class="fil-row"><div class="fil-dot" style="background:${color}"></div><span style="color:${color};font-weight:600">${label}</span> <span style="color:var(--text-muted)">${section} &mdash; ${role}</span></div>`;
+}
+
+function gaineBlock(title,fils){
+  return `<div class="gaine-block"><div class="gaine-title">🔧 ${title}</div>${fils}</div>`;
+}
+
+function getCablagePanel(elem){
+  const r=NFC_RULES[elem.type];
+  const inter=elem.linkedInter?state.elements.find(e=>e.id===elem.linkedInter):null;
+  const tableau=state.elements.find(e=>e.type==='tableau');
+  if(!tableau||!r.disj) return '';
+
+  let html='';
+
+  if(['prise','frigo','prisecui'].includes(elem.type)){
+    const from=elem.seriesFrom?state.elements.find(e=>e.id===elem.seriesFrom):tableau;
+    const fromLabel=elem.seriesFrom?`Prise #${from?.id}`:'Tableau';
+    const dist=from?calcDist(elem,from):0;
+    html+=gaineBlock(`GAINE ${fromLabel} → ${r.label} #${elem.id} (~${dist.toFixed(1)}m)`,
+      filRow('#FF7B72','Phase (rouge)',r.section,'Borne phase')+
+      filRow('#58A6FF','Neutre (bleu)',r.section,'Borne neutre')+
+      filRow('#3FB950','Terre PE (V/J)',r.section,'Borne terre'));
+
+  } else if(elem.type==='lampe'||elem.type==='hotte'){
+    const distTab=tableau?calcDist(elem,tableau):0;
+    if(inter){
+      const distI=calcDist(elem,inter);
+      html+=gaineBlock(`GAINE Tableau → Inter. #${inter.id}`,
+        filRow('#FF7B72','Phase (rouge)','1.5mm²','Entrée interrupteur')+
+        filRow('#58A6FF','Neutre (bleu)','1.5mm²','Traverse SANS connexion inter. → vers lampe')+
+        filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
+      html+=gaineBlock(`GAINE Inter. #${inter.id} → ${r.label} #${elem.id} (~${distI.toFixed(1)}m)`,
+        filRow('#E3B341','Retour lampe (orange)','1.5mm²','Sortie inter. → Borne phase DCL')+
+        filRow('#58A6FF','Neutre (bleu)','1.5mm²','Direct tableau → Borne N DCL')+
+        filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
+    } else {
+      html+=gaineBlock(`GAINE Tableau → ${r.label} #${elem.id} (~${distTab.toFixed(1)}m)`,
+        filRow('#FF7B72','Phase (rouge)','1.5mm²','Borne phase DCL')+
+        filRow('#58A6FF','Neutre (bleu)','1.5mm²','Borne N DCL')+
+        filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
+    }
+
+  } else if(elem.type==='inter'){
+    const distTab=calcDist(elem,tableau);
+    html+=gaineBlock(`GAINE Tableau → Inter. #${elem.id} (~${distTab.toFixed(1)}m)`,
+      filRow('#FF7B72','Phase (rouge)','1.5mm²','Borne entrée inter.')+
+      filRow('#58A6FF','Neutre (bleu)','1.5mm²','Traverse inter. SANS connexion → lampe')+
+      filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
+    elem.linkedLampes.forEach(lid=>{
+      const l=state.elements.find(e=>e.id===lid);
+      if(l){
+        const distL=calcDist(elem,l);
+        html+=gaineBlock(`GAINE Inter. #${elem.id} → Lampe #${l.id} (~${distL.toFixed(1)}m)`,
+          filRow('#E3B341','Retour lampe (orange)','1.5mm²','Borne sortie inter. → Borne phase DCL')+
+          filRow('#58A6FF','Neutre (bleu)','1.5mm²','Depuis tableau direct → Borne N DCL')+
+          filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
+      }
+    });
+
+  } else if(elem.type==='inter2'){
+    const distTab=calcDist(elem,tableau);
+    html+=gaineBlock(`GAINE Tableau → Inter. double #${elem.id} (~${distTab.toFixed(1)}m) &mdash; Câble 5G1,5mm²`,
+      filRow('#FF7B72','Phase (rouge)','1.5mm²','Shuntée sur 2 bornes phase')+
+      filRow('#E3B341','Retour lampe G (orange)','1.5mm²','Sortie BTN Gauche → Groupe 1')+
+      filRow('#F0A500','Retour lampe D (ambre)','1.5mm²','Sortie BTN Droit → Groupe 2')+
+      filRow('#58A6FF','Neutre (bleu)','1.5mm²','Direct tableau → lampes')+
+      filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
+    elem.linkedLampes.forEach(lid=>{
+      const l=state.elements.find(e=>e.id===lid);
+      if(l){
+        html+=gaineBlock(`GAINE Inter. double → Lampe #${l.id} (Groupe ${l.groupe||1})`,
+          filRow(l.groupe===2?'#F0A500':'#E3B341',l.groupe===2?'Retour lampe D (ambre)':'Retour lampe G (orange)','1.5mm²','Borne phase DCL')+
+          filRow('#58A6FF','Neutre (bleu)','1.5mm²','Borne N DCL')+
+          filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
+      }
+    });
+
+  } else if(elem.type==='vav'){
+    const pair=elem.pairVav?state.elements.find(e=>e.id===elem.pairVav):null;
+    const distTab=calcDist(elem,tableau);
+    html+=gaineBlock(`GAINE Tableau → VaV #${elem.id} (~${distTab.toFixed(1)}m)`,
+      filRow('#FF7B72','Phase (rouge)','1.5mm²','Borne COM inter. 1')+
+      filRow('#58A6FF','Neutre (bleu)','1.5mm²','Traverse → lampe (ne passe PAS dans le mécanisme)')+
+      filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîte encastrement'));
+    if(pair){
+      const distP=calcDist(elem,pair);
+      html+=gaineBlock(`GAINE VaV #${elem.id} → VaV #${pair.id} (~${distP.toFixed(1)}m) &mdash; Câble 5G1,5mm²`,
+        filRow('#BC8CFF','Navette 1 (violet)','1.5mm²','L1 inter.1 → L1 inter.2')+
+        filRow('#EC4899','Navette 2 (rose)','1.5mm²','L2 inter.1 → L2 inter.2')+
+        filRow('#58A6FF','Neutre (bleu)','1.5mm²','Traverse inter.2 → lampe')+
+        filRow('#3FB950','Terre PE (V/J)','1.5mm²','Boîtes encastrement'));
+      elem.linkedLampes.forEach(lid=>{
+        const l=state.elements.find(e=>e.id===lid);
+        if(l){
+          const distL=calcDist(pair||elem,l);
+          html+=gaineBlock(`GAINE VaV #${pair.id} → Lampe #${l.id} (~${distL.toFixed(1)}m)`,
+            filRow('#E3B341','Retour lampe (orange)','1.5mm²','COM inter.2 → Borne phase DCL')+
+            filRow('#58A6FF','Neutre (bleu)','1.5mm²','Borne N DCL')+
+            filRow('#3FB950','Terre PE (V/J)','1.5mm²','Borne T DCL'));
+        }
+      });
+    } else {
+      html+=`<div class="note-nfc">⚠️ Ajouter le 2e interrupteur Va-et-vient pour compléter le schéma.</div>`;
+    }
+
+  } else if(r.dedie&&elem.type!=='tableau'){
+    const dist=calcDist(elem,tableau);
+    html+=gaineBlock(`GAINE Tableau → ${r.label} #${elem.id} (~${dist.toFixed(1)}m)`,
+      filRow('#FF7B72','Phase (rouge)',r.section,'Circuit dédié')+
+      filRow('#58A6FF','Neutre (bleu)',r.section,'Retour courant')+
+      filRow('#3FB950','Terre PE (V/J)',r.section,'Masse équipement'));
   }
-  persist();closeModal();render();
+  return html;
 }
 
-function editCircuit(id){openModal(id);}
-
-function deleteCircuit(id){
-  if(!confirm('Supprimer ce circuit ?'))return;
-  circuits=circuits.filter(c=>c.id!==id);
-  persist();render();
+// ─── Suppression ─────────────────────────────────────────────────────────────
+function deleteElement(id){
+  const elem=state.elements.find(e=>e.id===id);
+  if(!elem)return;
+  state.elements.forEach(e=>{
+    if(e.linkedInter===id){e.linkedInter=null;e.status='warn';}
+    e.linkedLampes=e.linkedLampes.filter(lid=>lid!==id);
+    if(e.seriesFrom===id)e.seriesFrom=null;
+    if(e.pairVav===id){e.pairVav=null;e.status='warn';}
+    updateElementDOM(e);
+  });
+  state.elements=state.elements.filter(e=>e.id!==id);
+  document.getElementById('elem-'+id)?.remove();
+  if(selectedElemId===id)deselectElement();
+  renderCables();
+  saveToLocal();
+  toast(`🗑 Élément #${id} supprimé`,'info');
 }
 
-function toggleCircuit(id){
-  const c=circuits.find(x=>x.id===id);
-  if(c){c.on=!c.on;persist();render();}
+// ─── Pièces ───────────────────────────────────────────────────────────────────
+function confirmRoom(){
+  const name=document.getElementById('room-name-input').value.trim()||'Pièce';
+  if(!tempRoom){document.getElementById('modal-room').style.display='none';return;}
+  const room={id:state.nextRoomId++,name,...tempRoom};
+  state.rooms.push(room);
+  renderRooms();
+  saveToLocal();
+  document.getElementById('modal-room').style.display='none';
+  tempRoom=null;
+  toast(`✅ Pièce "${name}" créée`,'ok');
+}
+function cancelRoom(){tempRoom=null;document.getElementById('modal-room').style.display='none';}
+function renameRoom(id){
+  const r=state.rooms.find(r=>r.id===id);
+  if(!r)return;
+  const newName=prompt('Nouveau nom de la pièce :',r.name);
+  if(newName){r.name=newName;renderRooms();saveToLocal();}
 }
 
-document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+// ─── Liste matériel ───────────────────────────────────────────────────────────
+function showMateriel(){
+  const tableau=state.elements.find(e=>e.type==='tableau');
+  if(!tableau){toast('⚠️ Aucun tableau — plan vide','err');return;}
+  const cables={'1.5':0,'2.5':0,'6':0},gaines={'16':0,'20':0,'25':0},djs={},appareillage={};
+  let wagos3=0,wagos5=0,boitesD=0,boitesE=0;
+  state.elements.forEach(elem=>{
+    const r=NFC_RULES[elem.type],l=r.label;
+    appareillage[l]=(appareillage[l]||0)+1;
+    if(!r.section)return;
+    const sect=r.section.replace('mm²','').trim(),dist=calcDist(elem,tableau);
+    cables[sect]=(cables[sect]||0)+dist;
+    const gNum=r.gaine.replace('ICTA ','').trim();
+    gaines[gNum]=(gaines[gNum]||0)+dist;
+    if(r.disj)djs[`DJ ${r.disj}`]=(djs[`DJ ${r.disj}`]||0)+1;
+    wagos3+=2;boitesD+=0.33;
+    if(['inter','inter2','vav','prise','prisecui'].includes(elem.type))boitesE++;
+  });
+  wagos5=Math.ceil(state.elements.length/2);
+  const nbMod=Object.values(djs).reduce((a,b)=>a+b,0),nbModTotal=Math.ceil(nbMod*1.2+2);
+  let html=`<div class="mat-section"><h4>🗃 Tableau et protections</h4>
+    <div class="mat-row"><span>Coffret ${nbModTotal} modules</span><span class="mat-qty">1 pce</span></div>
+    <div class="mat-row"><span>Disj. de branchement 60A</span><span class="mat-qty">1 pce</span></div>
+    <div class="mat-row"><span>ID 40A/30mA Type A</span><span class="mat-qty">1 pce</span></div>
+    <div class="mat-row"><span>ID 40A/30mA Type AC</span><span class="mat-qty">1 pce</span></div>
+    <div class="mat-row"><span>Parafoudre NFC 15-100</span><span class="mat-qty">1 pce</span></div>
+  </div>
+  <div class="mat-section"><h4>⚡ Disjoncteurs</h4>`;
+  Object.entries(djs).forEach(([k,v])=>html+=`<div class="mat-row"><span>${k} courbe C</span><span class="mat-qty">${v} pce</span></div>`);
+  html+=`</div><div class="mat-section"><h4>🔌 Câbles H07V-U</h4>`;
+  Object.entries(cables).forEach(([s,l])=>{if(l>0)html+=`<div class="mat-row"><span>Câble 3G${s}mm²</span><span class="mat-qty">${Math.ceil(l)}m</span></div>`;});
+  html+=`</div><div class="mat-section"><h4>🔵 Gaines ICTA</h4>`;
+  Object.entries(gaines).forEach(([d,l])=>{if(l>0)html+=`<div class="mat-row"><span>Gaine ICTA ${d}mm</span><span class="mat-qty">${Math.ceil(l)}m</span></div>`;});
+  html+=`</div><div class="mat-section"><h4>🔧 Appareillage</h4>`;
+  Object.entries(appareillage).forEach(([k,v])=>html+=`<div class="mat-row"><span>${k}</span><span class="mat-qty">${v} pce</span></div>`);
+  html+=`</div><div class="mat-section"><h4>📦 Accessoires</h4>
+    <div class="mat-row"><span>WAGO 3 entrées</span><span class="mat-qty">${Math.ceil(wagos3)} pce</span></div>
+    <div class="mat-row"><span>WAGO 5 entrées</span><span class="mat-qty">${wagos5} pce</span></div>
+    <div class="mat-row"><span>Boîtes de dérivation Ø80</span><span class="mat-qty">${Math.ceil(boitesD)} pce</span></div>
+    <div class="mat-row"><span>Boîtes d\'encastrement</span><span class="mat-qty">${boitesE} pce</span></div>
+  </div>`;
+  document.getElementById('mat-content').innerHTML=html;
+  document.getElementById('modal-mat').style.display='flex';
+}
 
-render();
+function copyMat(){
+  const rows=document.querySelectorAll('#mat-content .mat-row');
+  let txt='LISTE MATÉRIEL ElecPlan\n\n';
+  rows.forEach(r=>{
+    const cells=r.querySelectorAll('span');
+    if(cells.length>=2)txt+=`${cells[0].textContent.padEnd(35)} ${cells[1].textContent}\n`;
+  });
+  navigator.clipboard.writeText(txt).then(()=>toast('📋 Copié dans le presse-papier','ok'));
+}
+function printMat(){window.print();}
+
+// ─── Modes & UI ──────────────────────────────────────────────────────────────
+function setMode(mode){
+  currentMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-'+mode)?.classList.add('active');
+  const c=document.getElementById('canvas-container');
+  c.className='mode-'+mode;
+  if(mode!=='place')hidePreview();
+  // Refresh draggable class on elements
+  document.querySelectorAll('.element').forEach(el=>{
+    el.classList.toggle('draggable',mode==='select');
+  });
+  updateHint();
+}
+
+function updateHint(){
+  const r=NFC_RULES[selectedElemType];
+  const hints={
+    place:`✏️ Placement : ${r?.icon||''} ${r?.label||''} — Clique sur la grille`,
+    select:'↖ Sélectionner / Déplacer : clic = infos, cliquer-glisser = déplacer',
+    delete:'🗑 Supprimer : clique un élément pour le supprimer',
+    draw:'🔲 Dessiner pièce : cliquer-glisser pour tracer un rectangle'
+  };
+  document.getElementById('hint').textContent=hints[currentMode]||'';
+}
+
+function zoom(delta){
+  scale=Math.min(2.5,Math.max(0.3,scale+delta));
+  document.getElementById('canvas-inner').style.transform=`scale(${scale})`;
+  document.getElementById('zoom-val').textContent=Math.round(scale*100)+'%';
+}
+function resetZoom(){scale=1;document.getElementById('canvas-inner').style.transform='scale(1)';document.getElementById('zoom-val').textContent='100%';}
+
+// ─── Persistance ─────────────────────────────────────────────────────────────
+function saveToLocal(){localStorage.setItem('elecplan_state',JSON.stringify(state));}
+function loadFromLocal(){
+  const saved=localStorage.getItem('elecplan_state');
+  if(saved){try{state=JSON.parse(saved);toast('💾 Plan chargé depuis la sauvegarde','info');}catch(e){}}
+}
+function clearAll(){
+  if(!confirm('Effacer tout le plan ? Cette action est irréversible.'))return;
+  state={elements:[],circuits:[],rooms:[],nextId:1,nextCircuitId:1,nextRoomId:1};
+  localStorage.removeItem('elecplan_state');
+  document.getElementById('elements-layer').innerHTML='';
+  document.getElementById('rooms-layer').innerHTML='';
+  document.getElementById('svg-cables').innerHTML='';
+  deselectElement();
+  toast('🗑 Plan effacé','info');
+}
+
+function toast(msg,type='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.className='';},3000);
+}
+
+init();
 </script>
 </body>
 </html>
