@@ -449,12 +449,14 @@ function autoConnectWizard(){
       const [vav1,vav2,lampe]=elems;
       if(vav1&&vav2){
         vav1.pairVav=vav2.id; vav2.pairVav=vav1.id;
-        if(lampe){lampe.linkedInter=vav1.id; vav1.linkedLampes.push(lampe.id); lampe.status='ok';}
-        createNewCircuit(vav1,'eclairage'); createNewCircuit(vav2,'eclairage');
-        updateElementDOM(vav1); updateElementDOM(vav2);
-        if(lampe) updateElementDOM(lampe);
-        renderCables();
-        toast('✅ Va-et-vient configuré !','ok');
+       if(lampe){
+  lampe.linkedInter=vav2.id;
+  vav2.linkedLampes.push(lampe.id);
+  lampe.status='ok';
+}
+createNewCircuit(vav1,'eclairage');
+vav2.circuitId=vav1.circuitId;
+vav2.status='ok';
       }
       break;
     }
@@ -892,7 +894,7 @@ function getConnections(elem){
     }
     case 'vav':{
       if(elem.circuitId)conns.push({from:tableau,to:elem,wires:['phase','neutre','terre']});
-      if(elem.pairVav){const pair=state.elements.find(x=>x.id===elem.pairVav);if(pair&&elem.id<pair.id)conns.push({from:elem,to:pair,wires:['nav1','nav2','neutre','terre']});}
+      if(elem.pairVav){const pair=state.elements.find(x=>x.id===elem.pairVav);if(pair&&elem.id<pair.id)conns.push({from:elem,to:pair,wires:['nav1','nav2']});
       elem.linkedLampes.forEach(lid=>{const lampe=state.elements.find(x=>x.id===lid);if(lampe)conns.push({from:elem,to:lampe,wires:['retour','neutre','terre']});});
       break;
     }
