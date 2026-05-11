@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ElecPlan — Planification électrique</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --primary:#1a56db;--primary-dark:#1e429f;
+      --secondary:#f59e0b;
+      --bg:#f9fafb;--surface:#fff;
+      --text:#111827;--muted:#6b7280;
+      --border:#e5e7eb;
+      --danger:#ef4444;--success:#10b981;--warning:#f59e0b
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+    /* HEADER */
+    header{background:var(--primary);color:#fff;padding:0 24px;height:60px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 4px rgba(0,0,0,.15);position:fixed;top:0;left:0;right:0;z-index:100}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px}
+    .logo svg{width:28px;height:28px}
+
+    /* LAYOUT */
+    .layout{display:flex;margin-top:60px;min-height:calc(100vh - 60px)}
+
+    /* SIDEBAR */
+    .sidebar{width:240px;background:#fff;border-right:1px solid var(--border);padding:16px 0;position:fixed;top:60px;bottom:0;overflow-y:auto}
+    .nav-section-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 20px 4px}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--muted);font-size:14px;font-weight:500;transition:all .15s;user-select:none}
+    .nav-item:hover{background:var(--bg);color:var(--text)}
+    .nav-item.active{background:#eff6ff;color:var(--primary);border-right:2px solid var(--primary)}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0}
+
+    /* MAIN */
+    .main{margin-left:240px;flex:1;padding:28px}
+    .view{display:none}.view.active{display:block}
+
+    /* PAGE HEADER */
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+    .page-title{font-size:22px;font-weight:700}
+    .page-subtitle{font-size:14px;color:var(--muted);margin-top:2px}
+
+    /* BUTTONS */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+    .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+    .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg)}
+    .btn svg{width:16px;height:16px}
+
+    /* CARD */
+    .card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px}
+
+    /* STATS */
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+    .stat-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+    .stat-label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+    .stat-value{font-size:28px;font-weight:700;margin-top:4px}
+    .stat-unit{font-size:14px;font-weight:400;color:var(--muted);margin-left:4px}
+    .stat-card.blue .stat-value{color:var(--primary)}
+    .stat-card.amber .stat-value{color:var(--warning)}
+    .stat-card.green .stat-value{color:var(--success)}
+    .stat-card.red .stat-value{color:var(--danger)}
+
+    /* TABLE */
+    .table-container{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+    .table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .table-title{font-weight:600;font-size:15px}
+    table{width:100%;border-collapse:collapse}
+    thead th{text-align:left;padding:10px 16px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border)}
+    tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover{background:#f9fafb}
+    td{padding:12px 16px;font-size:14px;vertical-align:middle}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500}
+    .badge-blue{background:#eff6ff;color:#1d4ed8}
+    .badge-green{background:#f0fdf4;color:#166534}
+    .badge-amber{background:#fffbeb;color:#92400e}
+    .badge-red{background:#fef2f2;color:#991b1b}
+    .badge-gray{background:#f3f4f6;color:#374151}
+
+    /* ACTION BUTTONS */
+    .action-btn{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;color:var(--muted);transition:all .15s}
+    .action-btn:hover{background:var(--bg);color:var(--text)}
+    .action-btn.danger:hover{background:#fef2f2;color:var(--danger)}
+    .action-btn svg{width:16px;height:16px;display:block}
+
+    /* MODAL */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal{background:#fff;border-radius:12px;width:500px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+    .modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .modal-title{font-size:17px;font-weight:600}
+    .modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);border-radius:4px}
+    .modal-close:hover{background:var(--bg)}
+    .modal-body{padding:20px 24px}
+    .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+    /* FORM */
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+    .form-input,.form-select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;color:var(--text);transition:border-color .15s}
+    .form-input:focus,.form-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+    /* PANEL CARDS */
+    .panel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+    .circuit-card{background:#fff;border:2px solid var(--border);border-radius:8px;padding:14px;transition:all .15s}
+    .circuit-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(26,86,219,.1)}
+    .circuit-card.on{border-color:var(--success)}
+    .circuit-card.overload{border-color:var(--danger)}
+    .circuit-card-name{font-size:13px;font-weight:600;margin-bottom:4px}
+    .circuit-card-type{font-size:11px;color:var(--muted);margin-bottom:8px}
+    .circuit-card-amp{font-size:20px;font-weight:700;color:var(--primary)}
+    .circuit-card-amp-unit{font-size:12px;color:var(--muted)}
+    .circuit-card-toggle{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+
+    /* TOGGLE */
+    .toggle-switch{position:relative;width:36px;height:20px;display:inline-block}
+    .toggle-switch input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:#d1d5db;border-radius:20px;cursor:pointer;transition:.2s}
+    .toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+    input:checked+.toggle-slider{background:var(--success)}
+    input:checked+.toggle-slider::before{transform:translateX(16px)}
+
+    /* ALERT */
+    .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:8px;font-size:14px;margin-bottom:16px}
+    .alert-warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+    .alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+    .alert svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
+
+    /* EMPTY STATE */
+    .empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+    .empty-state svg{width:48px;height:48px;margin:0 auto 12px;opacity:.3}
+    .empty-state h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
+    .empty-state p{font-size:14px}
+
+    /* PROGRESS */
+    .progress-bar{height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+    .progress-fill{height:100%;border-radius:99px;transition:width .3s}
+
+    @media(max-width:768px){
+      .sidebar{display:none}
+      .main{margin-left:0;padding:16px}
+      .stats-grid{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    ElecPlan
+  </div>
+  <span style="margin-left:auto;font-size:13px;opacity:.7">Planification électrique — NF C 15-100</span>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="nav-section">
+      <div class="nav-section-title">Vue générale</div>
+      <div class="nav-item active" data-view="tableau-de-bord">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Tableau de bord
+      </div>
+      <div class="nav-item" data-view="tableau-electrique">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
+        Tableau électrique
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Installation</div>
+      <div class="nav-item" data-view="circuits">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+        Circuits
+      </div>
+      <div class="nav-item" data-view="cables">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M4 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2M4 12a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg>
+        Sections câbles
+      </div>
+      <div class="nav-item" data-view="calcul">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4"/><rect x="9" y="3" width="6" height="8" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        Calcul de charge
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- TABLEAU DE BORD -->
+    <div class="view active" id="view-tableau-de-bord">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Tableau de bord</div>
+          <div class="page-subtitle">Vue d'ensemble de votre installation</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Ajouter un circuit
+        </button>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="table-container">
+        <div class="table-header">
+          <span class="table-title">Tous les circuits</span>
+          <span id="circuit-count" style="font-size:13px;color:var(--muted)">0 circuit</span>
+        </div>
+        <div id="circuits-table-body"></div>
+      </div>
+    </div>
+
+    <!-- TABLEAU ÉLECTRIQUE -->
+    <div class="view" id="view-tableau-electrique">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Tableau électrique</div>
+          <div class="page-subtitle">Vue schématique des disjoncteurs</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-weight:600">Disjoncteur général</span>
+          <span id="general-amp" style="font-size:22px;font-weight:700;color:var(--primary)">0 A</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="general-progress" style="width:0%;background:var(--success)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px">
+          <span>Charge totale active</span>
+          <span id="general-pct">0%</span>
+        </div>
+      </div>
+      <div class="panel-grid" id="panel-grid"></div>
+    </div>
+
+    <!-- CIRCUITS -->
+    <div class="view" id="view-circuits">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Circuits</div>
+          <div class="page-subtitle">Gestion de vos circuits électriques</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Ajouter un circuit
+        </button>
+      </div>
+      <div class="table-container">
+        <div id="circuits-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- SECTIONS CÂBLES -->
+    <div class="view" id="view-cables">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sections câbles</div>
+          <div class="page-subtitle">Recommandations selon la NF C 15-100</div>
+        </div>
+      </div>
+      <div class="alert alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>Sections calculées selon la norme <strong>NF C 15-100</strong> pour câbles en installation fixe (mode de pose B2 — conduit encastré).</div>
+      </div>
+      <div class="table-container" style="margin-bottom:24px">
+        <div class="table-header"><span class="table-title">Tableau de référence</span></div>
+        <table>
+          <thead><tr><th>Usage</th><th>Puissance max</th><th>Intensité max</th><th>Disjoncteur</th><th>Section câble</th></tr></thead>
+          <tbody>
+            <tr><td>Éclairage</td><td>2 300 W</td><td>10 A</td><td><span class="badge badge-blue">10 A</span></td><td><strong>1,5 mm²</strong></td></tr>
+            <tr><td>Prises courant</td><td>3 450 W</td><td>16 A</td><td><span class="badge badge-blue">16 A</span></td><td><strong>2,5 mm²</strong></td></tr>
+            <tr><td>Gros électroménager</td><td>4 600 W</td><td>20 A</td><td><span class="badge badge-blue">20 A</span></td><td><strong>2,5 mm²</strong></td></tr>
+            <tr><td>Lave-linge / Sèche-linge</td><td>5 750 W</td><td>25 A</td><td><span class="badge badge-amber">25 A</span></td><td><strong>4 mm²</strong></td></tr>
+            <tr><td>Chauffe-eau</td><td>5 750 W</td><td>25 A</td><td><span class="badge badge-amber">25 A</span></td><td><strong>4 mm²</strong></td></tr>
+            <tr><td>Plaque de cuisson</td><td>7 360 W</td><td>32 A</td><td><span class="badge badge-red">32 A</span></td><td><strong>6 mm²</strong></td></tr>
+            <tr><td>Four + Cuisson</td><td>9 200 W</td><td>40 A</td><td><span class="badge badge-red">40 A</span></td><td><strong>10 mm²</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-container">
+        <div class="table-header"><span class="table-title">Conformité par circuit</span></div>
+        <div id="cables-by-circuit"></div>
+      </div>
+    </div>
+
+    <!-- CALCUL DE CHARGE -->
+    <div class="view" id="view-calcul">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Calcul de charge</div>
+          <div class="page-subtitle">Analyse de la puissance totale de l'installation</div>
+        </div>
+      </div>
+      <div id="calcul-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Ajouter un circuit</span>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="form-group">
+        <label class="form-label">Nom du circuit *</label>
+        <input type="text" class="form-input" id="f-nom" placeholder="ex: Éclairage salon">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="f-type" onchange="onTypeChange()">
+            <option value="eclairage">Éclairage</option>
+            <option value="prise">Prises de courant</option>
+            <option value="electomenager">Gros électroménager</option>
+            <option value="cuisson">Cuisson</option>
+            <option value="chauffage">Chauffage / Clim</option>
+            <option value="chauffe-eau">Chauffe-eau</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Puissance (W) *</label>
+          <input type="number" class="form-input" id="f-puissance" placeholder="ex: 1200" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Disjoncteur (A)</label>
+          <select class="form-select" id="f-disjoncteur">
+            <option value="10">10 A</option>
+            <option value="16" selected>16 A</option>
+            <option value="20">20 A</option>
+            <option value="25">25 A</option>
+            <option value="32">32 A</option>
+            <option value="40">40 A</option>
+            <option value="63">63 A</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Section câble (mm²)</label>
+          <select class="form-select" id="f-section">
+            <option value="1.5">1,5 mm²</option>
+            <option value="2.5" selected>2,5 mm²</option>
+            <option value="4">4 mm²</option>
+            <option value="6">6 mm²</option>
+            <option value="10">10 mm²</option>
+            <option value="16">16 mm²</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pièce / Zone</label>
+        <input type="text" class="form-input" id="f-piece" placeholder="ex: Salon, Cuisine, Chambre 1…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="f-notes" placeholder="Informations supplémentaires…">
+      </div>
+      <div id="f-calc-hint" class="alert alert-info" style="margin-top:8px;display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span id="f-calc-text"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCircuit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// State
+let circuits = JSON.parse(localStorage.getItem('elecplan-circuits') || 'null');
+if (!circuits) {
+  circuits = [
+    {id:1,nom:'Éclairage séjour',type:'eclairage',puissance:500,disjoncteur:10,section:1.5,piece:'Séjour',notes:'',on:true},
+    {id:2,nom:'Prises séjour',type:'prise',puissance:2500,disjoncteur:16,section:2.5,piece:'Séjour',notes:'',on:true},
+    {id:3,nom:'Éclairage cuisine',type:'eclairage',puissance:400,disjoncteur:10,section:1.5,piece:'Cuisine',notes:'',on:true},
+    {id:4,nom:'Plaque de cuisson',type:'cuisson',puissance:7000,disjoncteur:32,section:6,piece:'Cuisine',notes:'',on:false},
+    {id:5,nom:'Four',type:'electomenager',puissance:2200,disjoncteur:20,section:2.5,piece:'Cuisine',notes:'',on:true},
+    {id:6,nom:'Lave-linge',type:'electomenager',puissance:2200,disjoncteur:20,section:2.5,piece:'Buanderie',notes:'',on:false},
+    {id:7,nom:'Chauffe-eau',type:'chauffe-eau',puissance:2400,disjoncteur:20,section:2.5,piece:'Salle de bain',notes:'Chauffe-eau 150L',on:true},
+    {id:8,nom:'Éclairage chambres',type:'eclairage',puissance:300,disjoncteur:10,section:1.5,piece:'Chambres',notes:'',on:true},
+  ];
+  persist();
+}
+let nextId = Math.max(...circuits.map(c=>c.id),0)+1;
+let editingId = null;
+
+function persist(){localStorage.setItem('elecplan-circuits',JSON.stringify(circuits));}
+
+// Navigation
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',function(){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('view-'+this.dataset.view).classList.add('active');
+    render();
+  });
+});
+
+// Helpers
+function totalActive(){return circuits.filter(c=>c.on).reduce((s,c)=>s+c.puissance,0);}
+function totalAll(){return circuits.reduce((s,c)=>s+c.puissance,0);}
+function recSection(amp){
+  if(amp<=10)return'1,5 mm²';
+  if(amp<=20)return'2,5 mm²';
+  if(amp<=25)return'4 mm²';
+  if(amp<=32)return'6 mm²';
+  if(amp<=40)return'10 mm²';
+  return'16 mm²';
+}
+function recSectionVal(amp){
+  if(amp<=10)return 1.5;
+  if(amp<=20)return 2.5;
+  if(amp<=25)return 4;
+  if(amp<=32)return 6;
+  if(amp<=40)return 10;
+  return 16;
+}
+const TYPE_LABEL={eclairage:'Éclairage',prise:'Prises',electomenager:'Électroménager',cuisson:'Cuisson',chauffage:'Chauffage/Clim','chauffe-eau':'Chauffe-eau',autre:'Autre'};
+const TYPE_BADGE={eclairage:'badge-amber',prise:'badge-blue',electomenager:'badge-green',cuisson:'badge-red',chauffage:'badge-red','chauffe-eau':'badge-blue',autre:'badge-gray'};
+
+// Render
+function render(){
+  renderStats();
+  renderTable();
+  renderDetail();
+  renderPanel();
+  renderCables();
+  renderCalcul();
+}
+
+function renderStats(){
+  const tot=totalAll(),act=totalActive();
+  const actA=(act/230).toFixed(0);
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card blue"><div class="stat-label">Circuits</div><div class="stat-value">${circuits.length}<span class="stat-unit">total</span></div></div>
+    <div class="stat-card amber"><div class="stat-label">Puissance installée</div><div class="stat-value">${(tot/1000).toFixed(1)}<span class="stat-unit">kW</span></div></div>
+    <div class="stat-card green"><div class="stat-label">Charge active</div><div class="stat-value">${(act/1000).toFixed(1)}<span class="stat-unit">kW</span></div></div>
+    <div class="stat-card ${actA>63?'red':actA>45?'amber':'blue'}"><div class="stat-label">Intensité active</div><div class="stat-value">${actA}<span class="stat-unit">A</span></div></div>
+  `;
+  document.getElementById('circuit-count').textContent=circuits.length+' circuit'+(circuits.length>1?'s':'');
+}
+
+function circuitRowHTML(c,showToggle){
+  const amp=(c.puissance/230).toFixed(1);
+  return `<tr>
+    <td><div style="font-weight:500">${c.nom}</div>${c.piece?`<div style="font-size:12px;color:var(--muted)">${c.piece}</div>`:''}</td>
+    <td><span class="badge ${TYPE_BADGE[c.type]||'badge-gray'}">${TYPE_LABEL[c.type]||c.type}</span></td>
+    <td>${c.puissance.toLocaleString('fr-FR')} W</td>
+    <td>${amp} A</td>
+    <td><span class="badge badge-blue">${c.disjoncteur} A</span></td>
+    <td><strong>${String(c.section).replace('.',',')} mm²</strong></td>
+    <td>${showToggle
+      ?`<label class="toggle-switch"><input type="checkbox" ${c.on?'checked':''} onchange="toggleCircuit(${c.id})"><span class="toggle-slider"></span></label>`
+      :`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;${c.on?'color:var(--success)':'color:var(--muted)'}"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>${c.on?'Actif':'Inactif'}</span>`
+    }</td>
+    <td>
+      <button class="action-btn" onclick="editCircuit(${c.id})" title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="action-btn danger" onclick="deleteCircuit(${c.id})" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>
+    </td>
+  </tr>`;
+}
+
+const TABLE_HEAD=`<thead><tr><th>Circuit</th><th>Type</th><th>Puissance</th><th>Intensité</th><th>Disjoncteur</th><th>Section</th><th>État</th><th>Actions</th></tr></thead>`;
+const EMPTY_HTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><h3>Aucun circuit</h3><p>Ajoutez votre premier circuit pour commencer</p></div>`;
+
+function renderTable(){
+  const el=document.getElementById('circuits-table-body');
+  if(!el)return;
+  el.innerHTML=circuits.length===0?EMPTY_HTML:`<table>${TABLE_HEAD}<tbody>${circuits.map(c=>circuitRowHTML(c,false)).join('')}</tbody></table>`;
+}
+
+function renderDetail(){
+  const el=document.getElementById('circuits-detail-body');
+  if(!el)return;
+  el.innerHTML=circuits.length===0?EMPTY_HTML:`<table>${TABLE_HEAD}<tbody>${circuits.map(c=>circuitRowHTML(c,true)).join('')}</tbody></table>`;
+}
+
+function renderPanel(){
+  const actA=totalActive()/230;
+  const maxA=63;
+  const pct=Math.min((actA/maxA)*100,100);
+  const color=pct>80?'var(--danger)':pct>60?'var(--warning)':'var(--success)';
+  const gen=document.getElementById('general-amp');
+  const prog=document.getElementById('general-progress');
+  const pctEl=document.getElementById('general-pct');
+  if(gen) gen.textContent=actA.toFixed(0)+' A / '+maxA+' A';
+  if(prog){prog.style.width=pct+'%';prog.style.background=color;}
+  if(pctEl) pctEl.textContent=pct.toFixed(0)+'%';
+  const grid=document.getElementById('panel-grid');
+  if(!grid)return;
+  if(circuits.length===0){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg><h3>Tableau vide</h3><p>Ajoutez des circuits</p></div>`;return;}
+  grid.innerHTML=circuits.map(c=>{
+    const a=(c.puissance/230).toFixed(1);
+    const overload=parseFloat(a)>c.disjoncteur;
+    return `<div class="circuit-card ${c.on?'on':''} ${overload?'overload':''}"><div class="circuit-card-name">${c.nom}</div><div class="circuit-card-type">${TYPE_LABEL[c.type]||c.type}${c.piece?' · '+c.piece:''}</div><div><span class="circuit-card-amp">${c.disjoncteur}</span><span class="circuit-card-amp-unit"> A</span></div><div class="circuit-card-toggle"><span style="font-size:11px;color:var(--muted)">${c.puissance} W</span><label class="toggle-switch"><input type="checkbox" ${c.on?'checked':''} onchange="toggleCircuit(${c.id})"><span class="toggle-slider"></span></label></div>${overload?'<div style="font-size:11px;color:var(--danger);margin-top:6px;font-weight:500">⚠ Surcharge</div>':''}</div>`;
+  }).join('');
+}
+
+function renderCables(){
+  const el=document.getElementById('cables-by-circuit');
+  if(!el)return;
+  if(circuits.length===0){el.innerHTML=`<div class="empty-state"><p>Aucun circuit à analyser</p></div>`;return;}
+  el.innerHTML=`<table><thead><tr><th>Circuit</th><th>Puissance</th><th>Intensité calc.</th><th>Section recommandée</th><th>Section installée</th><th>Conformité</th></tr></thead><tbody>${
+    circuits.map(c=>{
+      const amp=c.puissance/230;
+      const rec=recSection(amp);
+      const recVal=recSectionVal(amp);
+      const ok=c.section>=recVal;
+      return `<tr><td><strong>${c.nom}</strong>${c.piece?`<br><span style="font-size:12px;color:var(--muted)">${c.piece}</span>`:''}</td><td>${c.puissance.toLocaleString('fr-FR')} W</td><td>${amp.toFixed(1)} A</td><td>${rec}</td><td>${String(c.section).replace('.',',')} mm²</td><td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'Conforme':'Sous-dimensionné'}</span></td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+function renderCalcul(){
+  const el=document.getElementById('calcul-content');
+  if(!el)return;
+  const tot=totalAll(),act=totalActive();
+  const actA=act/230;
+  const byType={};
+  circuits.forEach(c=>{
+    if(!byType[c.type])byType[c.type]={p:0,n:0};
+    byType[c.type].p+=c.puissance;byType[c.type].n++;
+  });
+  const sub=actA<=6?6:actA<=9?9:actA<=12?12:actA<=15?15:actA<=18?18:actA<=24?24:actA<=30?30:actA<=36?36:45;
+  const SUBS=[[6,'Studio — très faible conso.'],[9,'Studio sans chauffage élec.'],[12,'Appartement 2-3 pièces'],[15,'Appartement avec lave-linge'],[18,'Maison sans chauffage élec.'],[24,'Maison avec chauffage élec.'],[30,'Grande maison'],[36,'Grande maison tout électrique'],[45,'Très grande propriété']];
+  el.innerHTML=`
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card blue"><div class="stat-label">Puissance installée</div><div class="stat-value">${(tot/1000).toFixed(2)}<span class="stat-unit">kW</span></div></div>
+      <div class="stat-card amber"><div class="stat-label">Intensité installée</div><div class="stat-value">${(tot/230).toFixed(0)}<span class="stat-unit">A</span></div></div>
+      <div class="stat-card green"><div class="stat-label">Charge active</div><div class="stat-value">${(act/1000).toFixed(2)}<span class="stat-unit">kW</span></div></div>
+      <div class="stat-card ${sub>36?'red':'blue'}"><div class="stat-label">Abonnement recommandé</div><div class="stat-value">${sub}<span class="stat-unit">kVA</span></div></div>
+    </div>
+    ${actA>63?`<div class="alert alert-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>Attention :</strong> La charge active (${actA.toFixed(0)} A) dépasse la capacité du disjoncteur général 63 A.</div></div>`:''}
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-weight:600;margin-bottom:16px">Répartition par type</div>
+      ${Object.entries(byType).map(([type,d])=>{
+        const pct=tot>0?(d.p/tot*100).toFixed(0):0;
+        return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:14px"><span><span class="badge ${TYPE_BADGE[type]||'badge-gray'}">${TYPE_LABEL[type]||type}</span> <span style="color:var(--muted);font-size:12px">${d.n} circuit${d.n>1?'s':''}</span></span><span style="font-weight:600">${(d.p/1000).toFixed(2)} kW <span style="color:var(--muted);font-weight:400">(${pct}%)</span></span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:var(--primary)"></div></div></div>`;
+      }).join('')}
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:12px">Guide d'abonnement EDF résidentiel</div>
+      <table style="width:100%"><thead><tr><th>Puissance</th><th>Intensité max</th><th>Usage type</th><th></th></tr></thead><tbody>
+        ${SUBS.map(([kva,desc])=>`<tr style="${sub===kva?'background:#eff6ff':''}"><td><strong>${kva} kVA</strong></td><td>${kva} A</td><td>${desc}</td><td>${sub===kva?'<span class="badge badge-green">Recommandé</span>':''}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+  `;
+}
+
+// Modal
+const TYPE_DEFAULTS={
+  eclairage:{d:10,s:1.5,h:'Éclairage : disjoncteur 10 A, câble 1,5 mm²'},
+  prise:{d:16,s:2.5,h:'Prises : disjoncteur 16 A, câble 2,5 mm²'},
+  electomenager:{d:20,s:2.5,h:'Électroménager : disjoncteur 20 A, câble 2,5 mm²'},
+  cuisson:{d:32,s:6,h:'Plaque de cuisson : disjoncteur 32 A, câble 6 mm²'},
+  chauffage:{d:20,s:2.5,h:'Vérifiez la puissance de l\'appareil.'},
+  'chauffe-eau':{d:20,s:2.5,h:'Chauffe-eau : disjoncteur 20 A, câble 2,5 mm²'},
+  autre:{d:16,s:2.5,h:'Sélectionnez les valeurs manuellement.'},
+};
+
+function openModal(id=null){
+  editingId=id;
+  document.getElementById('modal-title').textContent=id?'Modifier le circuit':'Ajouter un circuit';
+  document.getElementById('f-calc-hint').style.display='none';
+  if(id){
+    const c=circuits.find(x=>x.id===id);
+    document.getElementById('edit-id').value=c.id;
+    document.getElementById('f-nom').value=c.nom;
+    document.getElementById('f-type').value=c.type;
+    document.getElementById('f-puissance').value=c.puissance;
+    document.getElementById('f-disjoncteur').value=c.disjoncteur;
+    document.getElementById('f-section').value=c.section;
+    document.getElementById('f-piece').value=c.piece||'';
+    document.getElementById('f-notes').value=c.notes||'';
+  } else {
+    ['edit-id','f-nom','f-puissance','f-piece','f-notes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-type').value='prise';
+    document.getElementById('f-disjoncteur').value='16';
+    document.getElementById('f-section').value='2.5';
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-nom').focus(),50);
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingId=null;
+}
+
+function onTypeChange(){
+  const d=TYPE_DEFAULTS[document.getElementById('f-type').value];
+  if(!d)return;
+  document.getElementById('f-disjoncteur').value=d.d;
+  document.getElementById('f-section').value=d.s;
+  document.getElementById('f-calc-text').textContent=d.h;
+  document.getElementById('f-calc-hint').style.display='flex';
+}
+
+function saveCircuit(){
+  const nom=document.getElementById('f-nom').value.trim();
+  const puissance=parseInt(document.getElementById('f-puissance').value);
+  if(!nom){alert('Veuillez saisir un nom.');document.getElementById('f-nom').focus();return;}
+  if(!puissance||puissance<=0){alert('Veuillez saisir une puissance valide.');document.getElementById('f-puissance').focus();return;}
+  const data={
+    nom,type:document.getElementById('f-type').value,
+    puissance,
+    disjoncteur:parseInt(document.getElementById('f-disjoncteur').value),
+    section:parseFloat(document.getElementById('f-section').value),
+    piece:document.getElementById('f-piece').value.trim(),
+    notes:document.getElementById('f-notes').value.trim(),
+  };
+  if(editingId){
+    const idx=circuits.findIndex(c=>c.id===editingId);
+    circuits[idx]={...circuits[idx],...data};
+  } else {
+    circuits.push({id:nextId++,on:true,...data});
+  }
+  persist();closeModal();render();
+}
+
+function editCircuit(id){openModal(id);}
+
+function deleteCircuit(id){
+  if(!confirm('Supprimer ce circuit ?'))return;
+  circuits=circuits.filter(c=>c.id!==id);
+  persist();render();
+}
+
+function toggleCircuit(id){
+  const c=circuits.find(x=>x.id===id);
+  if(c){c.on=!c.on;persist();render();}
+}
+
+document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+render();
+</script>
+</body>
+</html>
